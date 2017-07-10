@@ -54,46 +54,37 @@ class pluginController(object):
 
     #@+node:ekr.20110110105526.5471: *3* upload
     def upload (self,event=None):
-        c = self.c ; p = c.p
-
-        g.es("upload started")
+        '''Upload files to the server.'''
+        c = self.c
         p = g.findTopLevelNode(c, '@data ftp')
-        if p:
-            files = json.loads(p.b)
-
-            # credentials - array of (host, pass) of server,
-            # to while the files must be uploaded I suggest that the locations must be the same.
-            credentials = files[0]
-
-            for element in credentials:
-
-                g.es(element[0])
-                ftp = FTP(element[0])
-                ftp.login(element[1], element[2])
-                #@+<<upload all the modified files>>
-                #@+node:ekr.20110110105526.5472: *4* <<upload all the modified files>>
-                #@@c
-                for i in range(1, len(files)):
-
-                    file = files[i]
-
-                    n = len(file)
-                    if n < 3:
-                        file.append(-1)
-
-                    time = os.path.getmtime(file[0])
-                    if time != file[2]:
-                        files[i][2] = time
-                        g.es(files[i][0])
-                        FH = open(files[i][0],"rb")
-                        ftp.storbinary('STOR ' + files[i][1], FH)
-                        FH.close()
-                #@-<<upload all the modified files>>
-
-                ftp.quit()
-                p.b = json.dumps(files)
-
-            g.es("Upload complete")
+        if not p:
+            return g.es('No top-level @data ftp node')
+        g.es('upload started')
+        files = json.loads(p.b)
+        # credentials - array of (name, host, pass)
+        # describing the the server to which files will be uploaded.
+        # I suggest that the locations must be the same.
+        credentials = files[0]
+        for credential in credentials:
+            name, host, password = credential
+            g.es(name)
+            ftp = FTP(name)
+            ftp.login(host, password)
+            # upload all the modified files
+            for i in range(1, len(files)):
+                file_ = files[i]
+                n = len(file_)
+                if n < 3: file_.append(-1)
+                time = os.path.getmtime(file_[0])
+                if time != file_[2]:
+                    files[i][2] = time
+                    g.es(files[i][0])
+                    FH = open(files[i][0],"rb")
+                    ftp.storbinary('STOR ' + files[i][1], FH)
+                    FH.close()
+            ftp.quit()
+            p.b = json.dumps(files)
+        g.es("Upload complete")
     #@-others
 #@-others
 #@@language python
