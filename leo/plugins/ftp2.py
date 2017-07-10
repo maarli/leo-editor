@@ -5,7 +5,6 @@ ftp2.py: Upload files via ftp
 
 Original by Ivanov Dmitriy. Rewritten by EKR.
 '''
-
 #@+<< ftp2 imports >>
 #@+node:ekr.20170710161023.2: ** << ftp2 imports >>
 import leo.core.leoGlobals as g
@@ -44,7 +43,7 @@ class pluginController(object):
     #@+node:ekr.20170710161023.6: *3* ftp2.__init
     def __init__ (self,c):
         self.c = c
-        if 1:
+        if 0:
             c.k.registerCommand('upload',shortcut=None,func=self.upload)
             script = "c.k.simulateCommand('upload')"
             g.app.gui.makeScriptButton(c,script=script,buttonText='Upload')
@@ -60,75 +59,80 @@ class pluginController(object):
         p = g.findTopLevelNode(c, '@data ftp')
         if not p:
             return g.es('No top-level "@data ftp" node')
-        g.es_print('upload started')
+        # g.es_print('upload started')
         try:
-            files = json.loads(p.b)
+            json_list = json.loads(p.b)
         except Exception:
+            g.es_print('Exception loading:', repr(p.b))
             g.es_exception()
             return
-        # credentials - array of (name, host, pass)
-        credential = files[0]
+        # Credentials - array of (name, host, pass)
+        credential = json_list[0]
         try:
             username, host, password = credential
         except ValueError:
-            g.es_print('Invalid credential', repr(credential))
+            g.es_print('Invalid credential:', repr(credential))
             return
         try:
             ftp = FTP(host)
-            g.es_print('Connected to', host)
+            g.es_print('Connected to:', host)
         except Exception:
             g.es_print('Can not connect to host:', repr(host))
             g.es_exception()
             return
         try:
             ftp.login(username, password)
-            g.es_print('Logged in as', username)
+            g.es_print('Logged in as:', username)
         except Exception:
             g.es_print('Loggin failed for:', repr(username))
             g.es_exception()
             return
-        # upload all the modified files
-        for i, file_ in enumerate(files[1:]):
-            if isinstance(file_, list):
-                fn = file_[0]
-                if len(file_) == 0:
+        # Upload all the modified json_list
+        for filespec in json_list[1:]:
+            if isinstance(filespec, list):
+                fn = filespec[0]
+                if len(filespec) == 0:
                     g.es_print('Empty filespec')
                     continue
-                if len(file_) == 1:
-                    file_.append(1)
-                t1 = file_[1]
+                if len(filespec) == 1:
+                    filespec.append(1)
+                t1 = filespec[1]
             else:
-                g.es_print('file spec must be a list:', repr(file_))
+                g.es_print('Filespec must be a list:', repr(filespec))
                 continue
             if not g.os_path_exists(fn):
                 g.es_print('Does not exit:', fn)
                 ok = False
                 continue
-            time = os.path.getmtime(fn)
-            if time == t1:
-                g.es_print('Time matches. Not uploaded:', time, fn)
+            mtime = os.path.getmtime(fn)
+            if mtime == t1:
+                g.es_print('Time matches. Not uploaded:', mtime, fn)
                 ok = False
                 continue
             try:
                 fn2 = g.os_path_basename(fn)
                 with open(fn,"rb") as f:
                     ftp.storbinary('STOR ' + fn2, f)
-                file_[1] = time
+                filespec[1] = mtime
                     # Don't set this until all is well.
-                g.es_print('Uploaded', fn2)
+                g.es_print('Uploaded', fn2, 'getmtime', mtime)
             except Exception:
                 g.es_print('Exception uploading', fn)
                 g.es_exception()
                 ok = False
         try:
             ftp.quit()
+            g.es_print('Logged off:', host)
         except Exception:
             g.es_print('Exception quitting', ftp)
             g.es_exception()
             return
         if ok:
-            # p.b = json.dumps(files)
-            g.es_print("Upload complete")
+            # Similar to g.listToString.
+            lines = ["  %r" % (z) for z in json_list]
+            s = '[\n%s\n]' % ',\n'.join(lines)
+            p.b = s.replace("'", '"')
+            g.es_print("Done")
     #@-others
 #@-others
 #@@language python
