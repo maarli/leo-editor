@@ -1435,6 +1435,73 @@ class LeoCursesGui(leoGui.LeoGui):
     def oops(self):
         '''Ignore do-nothing methods.'''
         g.pr("CursesGui oops:", g.callers(4), "should be overridden in subclass")
+    #@+node:ekr.20170712145632.1: *4* CGui.openFindDialog & helpers
+    def openFindDialog(self, c):
+        if g.unitTesting:
+            return
+        d = self.globalFindDialog
+        if not d:
+            d = self.createFindDialog(c)
+            self.globalFindDialog = d
+            # Fix #516: Do the following only once...
+            ### d.setStyleSheet(c.active_stylesheet)
+            # Set the commander's FindTabManager.
+            ### assert g.app.globalFindTabManager
+            ### c.ftm = g.app.globalFindTabManager
+            ### fn = c.shortFileName() or 'Untitled'
+            ### d.setWindowTitle('Find in %s' % fn)
+            c.frame.top.find_status_edit.setText('')
+        c.inCommand = False
+        if d.isVisible():
+            # The order is important, and tricky.
+            d.focusWidget()
+            d.show()
+            d.raise_()
+            d.activateWindow()
+        else:
+            d.show()
+            d.exec_()
+    #@+node:ekr.20170712145632.2: *5* qt_gui.createFindDialog
+    def createFindDialog(self, c):
+        '''Create and init a non-modal Find dialog.'''
+        # g.app.globalFindTabManager = c.findCommands.ftm
+        # top = c.frame.top
+            # top is the DynamicWindow class.
+        # w = top.findTab
+        # top.find_status_label.setText('Find Status:')
+
+        ### d = QtWidgets.QDialog()
+        # Fix #516: Hide the dialog. Never delete it.
+
+        # def closeEvent(event, d=d):
+            # event.ignore()
+            # d.hide()
+
+        # d.closeEvent = closeEvent
+        # layout = QtWidgets.QVBoxLayout(d)
+        # layout.addWidget(w)
+        # self.attachLeoIcon(d)
+        # d.setLayout(layout)
+        # c.styleSheetManager.set_style_sheets(w=d)
+        # g.app.gui.setFilter(c, d, d, 'find-dialog')
+            # # This makes most standard bindings available.
+        # d.setModal(False)
+        # return d
+    #@+node:ekr.20170712145632.3: *5* qt_gui.findDialogSelectCommander
+    def findDialogSelectCommander(self, c):
+        '''Update the Find Dialog when c changes.'''
+        if self.globalFindDialog:
+            c.ftm = g.app.globalFindTabManager
+            d = self.globalFindDialog
+            fn = c.shortFileName() or 'Untitled'
+            d.setWindowTitle('Find in %s' % fn)
+            c.inCommand = False
+    #@+node:ekr.20170712145632.4: *5* qt_gui.hideFindDialog
+    def hideFindDialog(self):
+        pass
+        # d = self.globalFindDialog
+        # if d:
+            # d.hide()
     #@+node:ekr.20170612063102.1: *4* CGui.put_help
     def put_help(self, c, s, short_title):
         '''Put a help message in a dialog.'''
@@ -1783,12 +1850,16 @@ class CoreFrame (leoFrame.LeoFrame):
             # self.wantedWidget = None
             # self.wantedCallbackScheduled = False
             # self.scrollWay = None
-    #@+node:ekr.20170420163932.1: *5* CFrame.finishCreate (more work may be needed)
+    #@+node:ekr.20170420163932.1: *5* CFrame.finishCreate
     def finishCreate(self):
-        # g.trace('CoreFrame', self.c.shortFileName())
+        g.trace('===== CoreFrame =====', self.c.shortFileName())
         c = self.c
         g.app.windowList.append(self)
+        # Force the use of a find dialog.
         c.findCommands.ftm = g.NullObject()
+        c.findCommands.minibuffer_mode = False
+        c.config.set(p=None, kind='bool', name='minibuffer-find-mode', val=False, warn=False)
+        c.config.set(p=None, kind='bool', name='use_find_dialog', val=True, warn=False)
         self.createFirstTreeNode()
             # Call the base-class method.
 

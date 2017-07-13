@@ -209,6 +209,7 @@ class LeoFind(object):
     def finishCreate(self):
         # New in 4.11.1.
         # Must be called when config settings are valid.
+        # g.trace('===== LeoFind =====')
         c = self.c
         self.minibuffer_mode = c.config.getBool('minibuffer-find-mode', default=False)
         # now that configuration settings are valid,
@@ -470,6 +471,7 @@ class LeoFind(object):
     def openFindTab(self, event=None, show=True):
         '''Open the Find tab in the log pane.'''
         c = self.c
+        g.trace(c.config.getBool('use_find_dialog', default=True))
         if c.config.getBool('use_find_dialog', default=True):
             g.app.gui.openFindDialog(c)
         else:
@@ -520,6 +522,7 @@ class LeoFind(object):
     @cmd('start-search')
     def startSearch(self, event):
         w = self.editWidget(event)
+        g.trace(self.minibuffer_mode, w)
         if w:
             self.preloadFindPattern(w)
         self.find_seen = set()
