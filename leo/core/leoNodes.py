@@ -1629,6 +1629,20 @@ class Position(object):
     b = property(
         __get_b, __set_b,
         doc="position body string property")
+    #@+node:vitalije.20170714204425.1: *4* p.lines property
+    def __get_lines(self):
+        '''Return the body lines of a position.'''
+        p = self
+        return p.v.bodyLines()
+
+    def __set_lines(self, val):
+        '''Set the body lines of a position. Just shortcut to p.v.setBodyLines'''
+        p = self
+        return p.v.setBodyLines(val)
+
+    lines = property(
+        __get_lines, __set_lines,
+        doc="position body lines property")
     #@+node:ekr.20090128083459.76: *4* p.h property
     def __get_h(self):
         p = self
@@ -2010,6 +2024,8 @@ class VNodeBase(object):
             # The length of the selected body text.
         self.selectionStart = 0
             # The start of the selected body text.
+        self._bodyLines = tuple()
+        self._sync = None
         # To make VNode's independent of Leo's core,
         # wrap all calls to the VNode ctor::
         #
@@ -2217,6 +2233,9 @@ class VNodeBase(object):
     body_unicode_warning = False
 
     def bodyString(self):
+        if self._sync is 'body':
+            self._bodyString = g.joinLines(self._bodyLines)
+            self._sync = None
         # This message should never be printed and we want to avoid crashing here!
         if g.isUnicode(self._bodyString):
             return self._bodyString
@@ -2228,6 +2247,12 @@ class VNodeBase(object):
 
     getBody = bodyString
         # Deprecated, but here for compatibility.
+    #@+node:vitalije.20170714202238.1: *4* v.bodyLines
+    def bodyLines(self):
+        if self._sync is 'lines':
+            self._bodyLines = tuple(g.splitLines(self._bodyString))
+            self._sync = None
+        return self._bodyLines
     #@+node:ekr.20031218072017.3360: *4* v.Children
     #@+node:ekr.20031218072017.3362: *5* v.firstChild
     def firstChild(self):
@@ -2266,8 +2291,9 @@ class VNodeBase(object):
     #@+node:ekr.20080429053831.6: *4* v.hasBody
     def hasBody(self):
         '''Return True if this VNode contains body text.'''
-        s = self._bodyString
-        return s and len(s) > 0
+        v = self
+        if v._sync is None: return bool(v._bodyLines)
+        return bool(v._bodyString) if v._sync == 'lines' else bool(v._bodyLines)
     #@+node:ekr.20031218072017.1581: *4* v.headString & v.cleanHeadString
     head_unicode_warning = False
 
@@ -2508,10 +2534,13 @@ class VNodeBase(object):
     def setBodyString(self, s):
         v = self
         if g.isUnicode(s):
-            v._bodyString = s
+            if v._bodyString != s or v._sync == 'body':
+                v._bodyString = s
+                v._sync = 'lines'
         else:
             try:
                 v._bodyString = g.toUnicode(s, reportErrors=True)
+                v._sync = 'lines'
             except Exception:
                 if not self.unicode_warning_given:
                     self.unicode_warning_given = True
@@ -2538,6 +2567,31 @@ class VNodeBase(object):
     initHeadString = setHeadString
     setHeadText = setHeadString
     setTnodeText = setBodyString
+    #@+node:vitalije.20170714202530.1: *4* v.setBodyLines
+    def setBodyLines(self, lines):
+        v = self
+        for x in lines:
+            if not g.isUnicode(x):
+                lines = map(v._setBodyLinesHelper, lines)
+                break
+        lines = tuple(lines)
+        if v._bodyLines != lines or v._sync == 'lines':
+            v._sync = 'body'
+        self._bodyLines = lines
+
+
+    def _setBodyLinesHelper(self, x):
+        try:
+            x = g.toUnicode(x, reportErrors=True)
+        except Exception:
+            if not self.unicode_warning_given:
+                self.unicode_warning_given = True
+                g.internalError(x)
+                g.es_exception()
+            x = g.toUnicode(x, reportErrors=False)
+        return x
+
+
     #@+node:ekr.20031218072017.3402: *4* v.setSelection
     def setSelection(self, start, length):
         v = self
@@ -2652,6 +2706,18 @@ class VNodeBase(object):
     b = property(
         __get_b, __set_b,
         doc="VNode body string property")
+    #@+node:vitalije.20170714203323.1: *4* v.lines Property
+    def __get_lines(self):
+        v = self
+        return v.bodyLines()
+
+    def __set_lines(self, val):
+        v = self
+        v.setBodyLines(val)
+
+    lines = property(
+        __get_lines, __set_lines,
+        doc="VNode body lines property")
     #@+node:ekr.20090130125002.1: *4* v.h property
     def __get_h(self):
         v = self
