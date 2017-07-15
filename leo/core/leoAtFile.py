@@ -1253,7 +1253,7 @@ class AtFile(object):
         s = g.toUnicode(s)
         if trace: g.trace('%28s %s' % (v.h, repr(s)))
         if at.importing:
-            v._bodyString = s # Allowed use of _bodyString.
+            v._setBodyString(s) # Allowed use of _bodyString.
         elif middle:
             pass # Middle sentinels never alter text.
         else:
@@ -3554,7 +3554,7 @@ class AtFile(object):
         )
         # Compute the file's contents.
         # Unlike the @clean/@nosent file logic, it does not add a final newline.
-        contents = ''.join([s for s in g.splitLines(p.b)
+        contents = ''.join([s for s in p.lines
             if at.directiveKind4(s, 0) == at.noDirective])
         if toString:
             at.stringOutput = contents
@@ -4419,7 +4419,7 @@ class AtFile(object):
         s = p.b
         # Remove all blank lines and all Leo directives.
         lines = []
-        for line in g.splitLines(s):
+        for line in p.lines:
             if not line.strip():
                 pass
             elif line.startswith('@'):

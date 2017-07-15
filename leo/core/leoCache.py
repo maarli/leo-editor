@@ -156,7 +156,7 @@ class Cacher(object):
             v = parent_v
             ### Does this destroy the ability to handle the rare case???
             v._headString = g.toUnicode(h)
-            v._bodyString = g.toUnicode(b)
+            v._setBodyString(g.toUnicode(b))
         for child_tuple in children:
             h, b, gnx, grandChildren = child_tuple
             if trace:

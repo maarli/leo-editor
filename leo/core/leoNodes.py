@@ -1406,6 +1406,8 @@ class Position(object):
         p = self
         p2.v._headString = g.toUnicode(p.h, reportErrors=True) # 2017/01/24
         p2.v._bodyString = g.toUnicode(p.b, reportErrors=True) # 2017/01/24
+        p2.v._bodyLines = p.v._bodyLines
+        p2.v._sync = p.v._sync
         # 2013/09/08: Fix bug 1019794: p.copyTreeFromSelfTo, should deepcopy p.v.u.
         p2.v.u = copy.deepcopy(p.v.u)
         # 2009/10/02: no need to copy arg to iter
@@ -2221,6 +2223,8 @@ class VNodeBase(object):
         # Copy vnode fields. Do **not** set v2.parents.
         v2._headString = g.toUnicode(v._headString, reportErrors=True) # 2017/01/24
         v2._bodyString = g.toUnicode(v._bodyString, reportErrors=True) # 2017/01/24
+        v2._bodyLines = v._bodyLines
+        v2._sync = v._sync
         v2.u = copy.deepcopy(v.u)
         if copyMarked and v.isMarked():
             v2.setMarked()
@@ -2546,6 +2550,11 @@ class VNodeBase(object):
                     self.unicode_warning_given = True
                     g.internalError(s)
                     g.es_exception()
+
+    def _setBodyString(self, s):
+        v = self
+        v._bodyString = s
+        v._sync = 'lines'
 
     def setHeadString(self, s):
         # Fix bug: https://bugs.launchpad.net/leo-editor/+bug/1245535
