@@ -2548,7 +2548,7 @@ class VNodeBase(object):
                 'non-string argument to v.setBodyString: %r' % (s),
                 color='red',
             )
-            g.printStack() # it may be useful for script author to use warning
+            g.es_print(g.callers(6))
 
     def _setBodyString(self, s):
         v = self
@@ -2597,7 +2597,7 @@ class VNodeBase(object):
                     'non-string argument to v.setBodyString: %r' % (s),
                     color='red',
                 )
-                g.es_exception() # it may be useful for script author to use warning
+                g.es_print(g.callers(6))
             x = g.toUnicode(x, reportErrors=False)
         return x
     #@+node:ekr.20031218072017.3402: *4* v.setSelection
