@@ -2537,19 +2537,18 @@ class VNodeBase(object):
 
     def setBodyString(self, s):
         v = self
-        if g.isUnicode(s):
+        if g.isString(s):
+            s = g.toUnicode(s, reportErrors=True)
             if v._bodyString != s or v._sync == 'body':
                 v._bodyString = s
                 v._sync = 'lines'
-        else:
-            try:
-                v._bodyString = g.toUnicode(s, reportErrors=True)
-                v._sync = 'lines'
-            except Exception:
-                if not self.unicode_warning_given:
-                    self.unicode_warning_given = True
-                    g.internalError(s)
-                    g.es_exception()
+        elif not self.body_string_warning_given:
+            self.body_string_warning_given = True
+            g.es_print(
+                'non-string argument to v.setBodyString: %r' % (s),
+                color='red',
+            )
+            g.printStack() # it may be useful for script author to use warning
 
     def _setBodyString(self, s):
         v = self
@@ -2569,7 +2568,6 @@ class VNodeBase(object):
             except Exception:
                 if not self.unicode_warning_given:
                     self.unicode_warning_given = True
-                    g.internalError(s)
                     g.es_exception()
 
     initBodyString = setBodyString
@@ -2595,12 +2593,13 @@ class VNodeBase(object):
         except Exception:
             if not self.unicode_warning_given:
                 self.unicode_warning_given = True
-                g.internalError(x)
-                g.es_exception()
+                g.es_print(
+                    'non-string argument to v.setBodyString: %r' % (s),
+                    color='red',
+                )
+                g.es_exception() # it may be useful for script author to use warning
             x = g.toUnicode(x, reportErrors=False)
         return x
-
-
     #@+node:ekr.20031218072017.3402: *4* v.setSelection
     def setSelection(self, start, length):
         v = self
