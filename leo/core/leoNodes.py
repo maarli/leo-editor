@@ -2594,7 +2594,7 @@ class VNodeBase(object):
             if not self.unicode_warning_given:
                 self.unicode_warning_given = True
                 g.es_print(
-                    'non-string argument to v.setBodyString: %r' % (s),
+                    'non-string argument to v.setBodyString: %r' % (x),
                     color='red',
                 )
                 g.es_print(g.callers(6))
