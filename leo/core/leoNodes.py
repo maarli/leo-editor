@@ -2237,7 +2237,7 @@ class VNodeBase(object):
     body_unicode_warning = False
 
     def bodyString(self):
-        if self._sync is 'body':
+        if self._sync == 'body':
             self._bodyString = g.joinLines(self._bodyLines)
             self._sync = None
         # This message should never be printed and we want to avoid crashing here!
@@ -2253,7 +2253,7 @@ class VNodeBase(object):
         # Deprecated, but here for compatibility.
     #@+node:vitalije.20170714202238.1: *4* v.bodyLines
     def bodyLines(self):
-        if self._sync is 'lines':
+        if self._sync == 'lines':
             self._bodyLines = tuple(g.splitLines(self._bodyString))
             self._sync = None
         return self._bodyLines
@@ -2533,6 +2533,7 @@ class VNodeBase(object):
             # 2011/03/21: w may not support the high-level interface.
             pass
     #@+node:ekr.20040315032144: *4* v.setBodyString & v.setHeadString
+    body_string_warning_given = False
     unicode_warning_given = False
 
     def setBodyString(self, s):
