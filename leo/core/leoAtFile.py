@@ -771,24 +771,21 @@ class AtFile(object):
         if not g.unitTesting:
             g.es("reading:", p.h)
         try:
+            # For #451: return p.
+            old_p = p.copy()
             at.scanAllDirectives(
                 p,
                 forcePythonSentinels=False,
                 importing=True,
-                reading=True, 
+                reading=True,
             )
-            if trace: g.trace(at.language, p.h)
-            # For #451: return p.
-            old_p = p.copy()
             p.v.b = '' # Required for @auto API checks.
             p.deleteAllChildren()
             p = ic.createOutline(fileName, parent=p.copy())
             # Do *not* select a postion here.
             # That would improperly expand nodes.
                 # c.selectPosition(p)
-        except AssertionError:
-            p = old_p
-            ic.errors += 1
+            if trace: g.trace(at.language, p.h)
         except Exception:
             p = old_p
             ic.errors += 1
@@ -2406,7 +2403,7 @@ class AtFile(object):
         return p
     #@+node:ekr.20041005105605.120: *5* at.parseLeoSentinel
     if 1: # Experimental. All unit tests pass.
-        
+
         def parseLeoSentinel(self, s):
             '''
             Parse the sentinel line s.
@@ -2423,9 +2420,9 @@ class AtFile(object):
                 # The old code weirdly allowed '.' in version numbers.
             m = pattern.match(s)
             valid = bool(m)
-            if valid:  
+            if valid:
                 # set start delim: whitespace before @+leo is significant.
-                # group(1): \* 
+                # group(1): \*
                 start = m.group(1)
                 valid = bool(start)
             if valid:
@@ -2469,7 +2466,7 @@ class AtFile(object):
                 g.trace('valid: %s, isThin: %s, encoding: %r, start: %r, end: %r' % (
                     valid, isThin, encoding, start, end))
             return valid, new_df, start, end, isThin
-        
+
     else:
 
         def parseLeoSentinel(self, s):
@@ -3081,7 +3078,7 @@ class AtFile(object):
                 at.write(p, kind='@thin', toString=toString)
                 writtenFiles.append(p.v)
             elif p.isAtFileNode():
-                at.write(p, kind='@file', toString=toString) 
+                at.write(p, kind='@file', toString=toString)
                 writtenFiles.append(p.v)
             if p.v in writtenFiles:
                 # Clear the dirty bits in all descendant nodes.
@@ -3385,7 +3382,7 @@ class AtFile(object):
             forcePythonSentinels=True,
                 # A hack to suppress an error message.
                 # The actual sentinels will be set below.
-        )    
+        )
         #
         # Bug fix: Leo 4.5.1:
         # use x.markerFromFileName to force the delim to match
@@ -3511,7 +3508,7 @@ class AtFile(object):
         c.raise_error_dialogs(kind='write')
     #@+node:ekr.20041005105605.152: *6* at.writeMissingNode
     def writeMissingNode(self, p):
-        
+
         at = self
         if p.isAtAsisFileNode():
             at.asisWrite(p)
@@ -3611,7 +3608,7 @@ class AtFile(object):
             at_warning_given = False,
             has_at_others = False,
             in_code = True,
-        )   
+        )
         while i < len(s):
             next_i = g.skip_line(s, i)
             assert next_i > i, 'putBody'
@@ -3633,7 +3630,7 @@ class AtFile(object):
         '''
         Ensure a trailing newline in s.
         If we add a trailing newline, we'll generate an @nonl sentinel below.
-        
+
         - We always ensure a newline in @file and @thin trees.
         - This code is not used used in @asis trees.
         - New in Leo 4.4.3 b1: We add a newline in @clean/@nosent trees unless
@@ -3657,7 +3654,7 @@ class AtFile(object):
             if status.in_code:
                 if at.raw:
                     at.putCodeLine(s, i)
-                else: 
+                else:
                     name, n1, n2 = at.findSectionName(s, i)
                     if name:
                         at.putRefLine(s, i, n1, n2, name, p)
@@ -4556,7 +4553,7 @@ class AtFile(object):
     def putDirective(self, s, i):
         r'''
         Output a sentinel a directive or reference s.
-        
+
         It is important for PHP and other situations that \@first and \@last
         directives get translated to verbatim lines that do *not* include what
         follows the @first & @last directives.
@@ -4634,7 +4631,8 @@ class AtFile(object):
                     self.putSentinel("@comment " + line)
     #@+node:ekr.20080712150045.1: *5* at.replaceFileWithString
     def replaceFileWithString(self, fn, s):
-        '''Replace the file with s if s is different from theFile's contents.
+        '''
+        Replace the file with s if s is different from theFile's contents.
 
         Return True if theFile was changed.
 
@@ -4707,6 +4705,12 @@ class AtFile(object):
             'ignoreBlankLines', ignoreBlankLines,
             'target exists', g.os_path_exists(at.targetFileName),
             at.outputFileName, at.targetFileName)
+        # #531: Optionally report timestamp...
+        if c.config.getBool('log_show_save_time', default=False):
+            format = c.config.getString('log_timestamp_format') or "%H:%M:%S"
+            timestamp = time.strftime(format) + ' '
+        else:
+            timestamp = ''
         if g.os_path_exists(at.targetFileName):
             if at.compareFiles(
                 at.outputFileName,
@@ -4719,7 +4723,7 @@ class AtFile(object):
                 report = c.config.getBool('report_unchanged_files', default=True)
                 at.sameFiles += 1
                 if report and not g.unitTesting:
-                    g.es('unchanged:', at.shortFileName)
+                    g.es('%sunchanged: %s' % (timestamp, at.shortFileName))
                 at.fileChangedFlag = False
                 # Leo 5.6: Check unchanged files.
                 at.checkPythonCode(root, pyflakes_errors_only=True)
@@ -4739,7 +4743,7 @@ class AtFile(object):
                 if ok:
                     c.setFileTimeStamp(at.targetFileName)
                     if not g.unitTesting:
-                        g.es('wrote:', at.shortFileName)
+                        g.es('%swrote: %s' % (timestamp, at.shortFileName))
                 else:
                     g.error('error writing', at.shortFileName)
                     g.es('not written:', at.shortFileName)
@@ -4756,7 +4760,7 @@ class AtFile(object):
             if ok:
                 c.setFileTimeStamp(at.targetFileName)
                 if not g.unitTesting:
-                    g.es('created:', at.targetFileName)
+                    g.es('%screated: %s' % (timestamp, at.targetFileName))
                 if root:
                     # Fix bug 889175: Remember the full fileName.
                     at.rememberReadPath(at.targetFileName, root)

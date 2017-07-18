@@ -49,9 +49,9 @@ class BackgroundProcessManager(object):
     in any way.
     '''
     #@-<< BPM docstring>>
-    
+
     # Use self.put_log, not g.es or g.es_print!
-    
+
     def __init__(self):
         '''Ctor for the base BackgroundProcessManager class.'''
         self.data = None
@@ -66,7 +66,7 @@ class BackgroundProcessManager(object):
     #@+node:ekr.20161028090624.1: *3* class ProcessData
     class ProcessData(object):
         '''A class to hold data about running or queued processes.'''
-        
+
         def __init__(self, c, kind, fn, shell):
             '''Ctor for the ProcessData class.'''
             self.c = c
@@ -74,7 +74,7 @@ class BackgroundProcessManager(object):
             self.fn = fn
             self.kind = kind
             self.shell = shell
-            
+
         def __repr__(self):
             return 'c: %s kind: %s callback: %s fn: %s shell: %s' % (
                 self.c.shortFileName(),
@@ -83,7 +83,7 @@ class BackgroundProcessManager(object):
                 self.fn,
                 self.shell,
             )
-                
+
         __str__ = __repr__
     #@+node:ekr.20161026193609.2: *3* bpm.check_process & helpers
     def check_process(self):
@@ -174,7 +174,7 @@ class BackgroundProcessManager(object):
 
             def callback(data=data):
                 fn = data.fn
-                self.put_log('%s: %s' % (kind, g.shortFileName(fn)))
+                self.put_log('%s: %s\n' % (kind, g.shortFileName(fn)))
                 self.pid = subprocess.Popen(
                     command,
                     shell=shell,
@@ -189,7 +189,7 @@ class BackgroundProcessManager(object):
             self.process_queue.append(data)
         else:
             # Start the process immediately.
-            self.put_log('%s: %s' % (kind, g.shortFileName(fn)))
+            self.put_log('%s: %s\n' % (kind, g.shortFileName(fn)))
             self.pid = subprocess.Popen(
                 command,
                 shell=shell,

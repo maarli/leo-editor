@@ -20,7 +20,7 @@ import string
 #@+node:ekr.20170127141855.1: ** class BaseColorizer
 class BaseColorizer(object):
     '''The base class for all Leo colorizers.'''
-    
+
     def __init__ (self, c):
         '''ctor for BaseColorizer class.'''
         self.c = c
@@ -29,7 +29,7 @@ class BaseColorizer(object):
         self.full_recolor_count = 0
         self.highlighter = g.NullObject()
         self.showInvisibles = False
-        
+
     def init(self, p):
         '''May be over-ridden in subclasses.'''
         pass
@@ -101,7 +101,7 @@ class BaseColorizer(object):
                 return language
             elif trace: g.trace('not a valid language', language, p.h)
         return None
-        
+
     #@+node:ekr.20170127142001.6: *5* bc.isValidLanguage
     def isValidLanguage(self, language):
         '''True if language exists in leo/modes.'''
@@ -172,7 +172,7 @@ class JEditColorizer(BaseColorizer):
         self.showInvisibles = False
         # Step 2: create the highlighter.
         if isinstance(widget, QtWidgets.QTextEdit):
-            self.highlighter = LeoHighlighter(c, 
+            self.highlighter = LeoHighlighter(c,
                 colorizer = self,
                 document = widget.document(),
             )
@@ -250,6 +250,7 @@ class JEditColorizer(BaseColorizer):
             'keyword1', 'keyword2', 'keyword3', 'keyword4',
             'label', 'literal1', 'literal2', 'literal3', 'literal4',
             'markup', 'operator',
+            'trailing_whitespace',
         ]
         self.defineLeoKeywordsDict()
         self.defineDefaultColorsDict()
@@ -309,6 +310,7 @@ class JEditColorizer(BaseColorizer):
             'markup'    :('markup_color',   'red'),
             'null'      :('null_color',     None), #'black'),
             'operator'  :('operator_color', 'black'), # 2014/09/17
+            'trailing_whitespace': ('trailing_whitespace_color', '#808080'),
         }
     #@+node:ekr.20110605121601.18575: *5* jedit.defineDefaultFontDict
     #@@nobeautify
@@ -362,6 +364,7 @@ class JEditColorizer(BaseColorizer):
                 # 'nocolor' This tag is used, but never generates code.
                 'null'          :'null_font',
                 'operator'      :'operator_font',
+                'trailing_whitespace' :'trailing_whitespace_font',
         }
     #@+node:ekr.20110605121601.18576: *4* jedit.addImportedRules
     def addImportedRules(self, mode, rulesDict, rulesetName):
@@ -393,7 +396,7 @@ class JEditColorizer(BaseColorizer):
         '''Put Leo-specific rules to theList.'''
         # pylint: disable=no-member
         # Python 2 uses rule.im_func. Python 3 uses rule.__func__.
-        table = (
+        table = [
             # Rules added at front are added in **reverse** order.
             ('@', self.match_leo_keywords, True), # Called after all other Leo matchers.
                 # Debatable: Leo keywords override langauge keywords.
@@ -418,7 +421,12 @@ class JEditColorizer(BaseColorizer):
             # Rules added at back are added in normal order.
             (' ', self.match_blanks, False),
             ('\t', self.match_tabs, False),
-        )
+        ]
+        if self.c.config.getBool("color_trailing_whitespace"):
+            table += [
+                (' ', self.match_trailing_ws, True),
+                ('\t', self.match_trailing_ws, True),
+            ]
         for ch, rule, atFront, in table:
             # Replace the bound method by an unbound method.
             if g.isPython3:
@@ -1048,7 +1056,7 @@ class JEditColorizer(BaseColorizer):
 
     def match_image(self, s, i):
         '''Matcher for <img...>'''
-        m = self.image_url.match(s,i) 
+        m = self.image_url.match(s,i)
         if m:
             self.image_src = src = m.group(1)
             j = len(src)
@@ -1161,6 +1169,17 @@ class JEditColorizer(BaseColorizer):
                 return j - i
             else:
                 return 0
+    #@+node:tbrown.20170707150713.1: *5* jedit.match_tabs
+    def match_trailing_ws(self, s, i):
+        """match trailing whitespace"""
+        j = i; n = len(s)
+        while j < n and s[j] in ' \t':
+            j += 1
+        if j > i and j == n:
+            self.colorRangeWithTag(s, i, j, 'trailing_whitespace')
+            return j - i
+        else:
+            return 0
     #@+node:ekr.20170225103140.1: *5* jedit.match_unl
     def match_unl(self, s, i):
         if g.match(s.lower(), i, 'unl://'):
@@ -1782,7 +1801,7 @@ class JEditColorizer(BaseColorizer):
             not state.endswith('@killcolor'))
         return enabled
 
-      
+
     #@+node:ekr.20110605121601.18633: *4* jedit.setRestart
     def setRestart(self, f, **keys):
         n = self.computeState(f, keys)
@@ -1902,7 +1921,7 @@ class JEditColorizer(BaseColorizer):
                     i += -n
                     break
                 else: # Partial failure: Do not break or change i!
-                    pass 
+                    pass
             else:
                 i += 1
             assert i > progress
@@ -1991,11 +2010,11 @@ class JEditColorizer(BaseColorizer):
         for leadins_list, pattern in zip(leadins, patterns):
             # g.trace('%3s %s' % (leadins_list, pattern))
             for ch in leadins_list:
-                
+
                 def wiki_rule(self, s, i, pattern=pattern):
                     '''Bind pattern and leadin for jedit.match_wiki_pattern.'''
                     return self.match_wiki_pattern(s, i, pattern)
-                
+
                 aList = d.get(ch, [])
                 if wiki_rule not in aList:
                     aList.insert(0, wiki_rule)
@@ -2056,7 +2075,7 @@ class JEditColorizer(BaseColorizer):
             format.setForeground(color)
             format.setUnderlineStyle(format.SingleUnderline)
             format.setFontUnderline(True)
-        elif dots:
+        elif dots or tag == 'trailing_whitespace':
             format.setForeground(color)
             format.setUnderlineStyle(format.DotLine)
         else:
@@ -2094,7 +2113,7 @@ if QtGui:
                 '''
                 Override base rehighlight method.
                 Does nothing unless QSyntaxHighlighter.currentBlock exists.
-                
+
                 It appears that this method is seldom (never?) called!
                 '''
                 # pylint: disable=arguments-differ
@@ -2132,7 +2151,7 @@ if QtGui:
         #@+node:ekr.20170428054142.1: *3* leo_h.force_rehighlight
         if 0:
             # Part of the failed fix for #466.
-            
+
             def force_rehighlight(self, p):
                 '''Force a complete rehighlighting of p.b.'''
                 if hasattr(self, 'currentBlock') and self.colorizer.enabled:
@@ -2201,7 +2220,7 @@ class QScintillaColorizer(BaseColorizer):
             # self.jeditColorizer.highlighter = self.highlighter
         # Alas QsciDocument is not a QDocument.
             # g.printList(sorted(dir(widget.document)))
-            # self.highlighter = LeoHighlighter(c, 
+            # self.highlighter = LeoHighlighter(c,
                 # colorizer = self,
                 # document = widget.document())
         widget.leo_colorizer = self
@@ -2313,9 +2332,9 @@ class QScintillaColorizer(BaseColorizer):
         table = (
             # 'Asm', 'Erlang', 'Forth', 'Haskell',
             # 'LaTeX', 'Lisp', 'Markdown', 'Nsis', 'R',
-            'Bash', 'Batch', 'CPP', 'CSS', 'CMake', 'CSharp', 'CoffeeScript', 
+            'Bash', 'Batch', 'CPP', 'CSS', 'CMake', 'CSharp', 'CoffeeScript',
             'D', 'Diff', 'Fortran', 'Fortran77', 'HTML',
-            'Java', 'JavaScript', 'Lua', 'Makefile', 'Matlab', 
+            'Java', 'JavaScript', 'Lua', 'Makefile', 'Matlab',
             'Pascal', 'Perl', 'Python', 'PostScript', 'Properties',
             'Ruby', 'SQL', 'TCL', 'TeX', 'XML', 'YAML',
         )

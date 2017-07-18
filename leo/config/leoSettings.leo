@@ -676,6 +676,8 @@
 <v t="ekr.20150216135059.1"><vh>@bool create-at-persistence-nodes-automatically = False</vh></v>
 <v t="ekr.20041119041304"><vh>@bool create_nonexistent_directories = False</vh></v>
 <v t="ekr.20041119034357.5"><vh>@bool read_only = False</vh></v>
+<v t="ekr.20170718054928.1"><vh>@bool log_show_save_time = False</vh></v>
+<v t="ekr.20170718054951.1"><vh>@string log_timestamp_format = %H:%M:%S</vh></v>
 <v t="ekr.20041119041304.1"><vh>@string relative_path_base_directory = .</vh></v>
 <v t="ekr.20170706103843.1"><vh>Checking files</vh>
 <v t="ekr.20071110153046"><vh>@bool at_auto_warns_about_leading_whitespace = True</vh></v>
@@ -2137,6 +2139,7 @@
 <v t="ekr.20111004182631.15534"><vh>@bool color_cweb_comments_with_latex = True</vh></v>
 <v t="ekr.20111004182631.15535"><vh>@bool color_cweb_doc_parts_with_latex = True</vh></v>
 <v t="ekr.20111004182631.15536"><vh>@bool color_directives_in_plain_text = True</vh></v>
+<v t="tbrown.20170710093248.1"><vh>@bool color_trailing_whitespace = True</vh></v>
 <v t="ekr.20100102121150.6344"><vh>@bool show-invisibles-by-default = False</vh></v>
 <v t="ekr.20111004182631.15537"><vh>@bool underline_undefined_section_names = True</vh></v>
 <v t="ekr.20111004182631.15538"><vh>@bool use_hyperlinks = False</vh></v>
@@ -2824,6 +2827,8 @@
 </v>
 </v>
 </v>
+<v t="ekr.20170718054928.1"></v>
+<v t="ekr.20170718054951.1"></v>
 </vnodes>
 <tnodes>
 <t tx="TL.20080702085131.2">If True: Save the Leo file and all modified derived files every time the external editor saves a modified file.
@@ -4146,7 +4151,9 @@ toggle-find-mark-changes-option     = Alt-Ctrl-c
 toggle-find-mark-finds-option       = Alt-Ctrl-f
 toggle-find-regex-option            = Alt-Ctrl-x
 toggle-find-word-option             = Alt-Ctrl-w
-toggle-find-wrap-around-option      = Alt-Ctrl-a</t>
+toggle-find-wrap-around-option      = Alt-Ctrl-a
+
+search-return-to-origin             = Alt+F3</t>
 <t tx="ekr.20060603215208.20">full-command            = Alt-x
 # negative-argument     = None      # Alt-minus conflicts with contract-all.
 repeat-complex-command  = Ctrl-P
@@ -4291,7 +4298,9 @@ tab-cycle-next      = Ctrl-Tab
 
 # Possible alternatives.
 # keyboard-quit     = Escape # Hard to type, interferes with dismissing dialogs.
-# focus-to-tree     = Ctrl-T</t>
+# focus-to-tree     = Ctrl-T
+edit-setting        = Ctrl+Key-0
+</t>
 <t tx="ekr.20060925060533.3">clone-node                  = Ctrl-`
 chapter-select              = None
 contract-node               = None
@@ -4336,8 +4345,9 @@ delete-spaces                       = None
 indent-region                       = ctrl-greater # Ctrl-shift-&gt;
 kill-line                           = Ctrl-k
 kill-to-end-of-line                 = None
-newline-and-indent                  = Ctrl-j # same as tab.
-newline-and-indent                  = Tab
+newline-and-indent                  = Ctrl-j
+newline-and-indent                  !text = Tab
+focus-to-body                       !tree = Tab
 paste-text                          = Ctrl-v
 reformat-paragraph                  = Shift-Ctrl-p
 split-line                          = None
@@ -5607,7 +5617,7 @@ class CheckSettings:
 CheckSettings(c).run()
 </t>
 <t tx="ekr.20110612074140.16415">def run (self):
-    
+
     verbose = False
     settings_node = g.findNodeAnywhere(self.c,'@settings')
 
@@ -5616,26 +5626,26 @@ CheckSettings(c).run()
 
     if not settings_node:
         return g.error('no @settings node in leoPy.leo')
-    
+
     # Step 1: compute aList1, the list of all settings in Leo's core.
     aList1 = []
     for p in self.core_c.all_positions():
         self.get_settings(aList1,p)
         aList1 = list(set(aList1))
         aList1.sort()
-        
+
     # Step 2: compute aList2, the list of all settings nodes in leoSettings.leo.
     aList2 = []
     for p in settings_node.subtree():
         self.get_settings_nodes(aList2,p)
         aList2 = list(set(aList2))
         aList2.sort()
-        
+
     if verbose:
         os.system('cls')
     else:
         print('-'*10)
-    
+
     for aList,tag in ((aList1,'leoPy.leo'),(aList2,'leoSettings.leo')):
         nl = g.choose(verbose,'\n','')
         end = g.choose(verbose,'...','')
@@ -5644,10 +5654,10 @@ CheckSettings(c).run()
         if verbose:
             for z in aList:
                 print(z.strip())
-        
+
     if verbose: g.es_print('done')</t>
 <t tx="ekr.20110612074140.16416">def init (self):
-    
+
     # leoPy.leo must be available.
     for f in g.app.windowList:
         c = f.c
@@ -5680,9 +5690,9 @@ CheckSettings(c).run()
     self.init()
 </t>
 <t tx="ekr.20110612074140.16419">def get_settings (self,aList,p):
-    
+
     '''Append all settings names in position p to aList'''
-        
+
     names = self.settingsNames
     for s in g.splitLines(p.b):
         for s2 in names:
@@ -5711,7 +5721,7 @@ CheckSettings(c).run()
                 break
 </t>
 <t tx="ekr.20110612074140.16478">def get_settings_nodes (self,aList,p):
-    
+
     '''Append all settings names in position p to aList'''
 
     s = p.h
@@ -5864,25 +5874,25 @@ gray90: #E5E5E5
 
 class Controller:
     @others
-    
+
 Controller(c).run()</t>
 <t tx="ekr.20111006212449.11851">def __init__ (self,c):
     self.c = c
-    
+
     self.errors = 0
-    
+
     # Commanders.
     self.core = None # Commander for leoPy.leo.
     self.plugins = None # Commander for leoPlugins.leo.
     self.settings = None # Commander for leoSettings.leo.
 </t>
 <t tx="ekr.20111006212449.11852">def check (self,configs_d,settings_d):
-    
+
     table = ('Bool','Color','Int','Float',# 'Font',
         'Ratio','Path','String',
     )
     format = '%40s %s'
-    
+
     if 1: # Less important: print missing settings.
         for kind in table:
             config_key = 'get%s' % kind
@@ -5926,50 +5936,50 @@ Controller(c).run()</t>
                         settings_list,config_list,
                         munged_settings_list,munged_config_list)</t>
 <t tx="ekr.20111006212449.11853">def error (self,s):
-    
+
     print(s)
     self.errors += 1
 </t>
 <t tx="ekr.20111006212449.11854">def get_commanders (self):
-    
+
     '''Open files as needed and set the commander ivars.'''
-    
+
     def open_commander(fn):
         c = g.openWithFileName(fn,old_c=self.c,gui=g.app.nullGui)
         if c: return c
         else:
             self.error('not found: %s' % fn)
-            
+
     self.core = open_commander(
         g.os_path_join(g.app.loadDir,'..','core','leoPy.leo'))
-            
+
     self.plugins = open_commander(
         g.os_path_join(g.app.loadDir,'..','plugins','leoPlugins.leo'))
-        
+
     self.settings = open_commander(
         g.os_path_join(g.app.loadDir,'..','config','leoSettings.leo'))
-        
+
     # g.trace('\n%s\n%s\n%s' % (self.core,self.plugins,self.settings))
 </t>
 <t tx="ekr.20111006212449.11855">def get_configs(self):
-    
+
     '''Return a dict containing a representation
     of all calls to x.config.getX.
     '''
-    
+
     d = {}
-    
+
     for c in (self.core,self.plugins):
         print('scanning: %s' % c.shortFileName())
         self.get_configs_from_outline(c,d)
-    
+
     return d</t>
 <t tx="ekr.20111006212449.11856">def get_configs_from_outline (self,c,d):
-    
+
     '''Scan the outline for all calls to x.config.getX
     and add items to d.
     '''
-    
+
     trace = True
     for p in c.all_positions():
         self.scan_for_configs(p,d)
@@ -5981,7 +5991,7 @@ Controller(c).run()</t>
                 print('  ' + name)
     return d</t>
 <t tx="ekr.20111006212449.11857">def scan_for_configs (self,p,d):
-    
+
     '''Scan the body text of p, finding all calls to getX.'''
     kinds = ('getBool','getColor','getInt','getFloat',
         # '@font', # special case.
@@ -5993,7 +6003,7 @@ Controller(c).run()</t>
         ch = s[i]
         if (
             ch == '@' and
-            (g.match(s,i,'@ ') or g.match(s,i,'@\n')) and 
+            (g.match(s,i,'@ ') or g.match(s,i,'@\n')) and
             (i == 0 or s[i-1] == '\n')
         ):
             i = s.find('\n@c',i)
@@ -6022,20 +6032,20 @@ Controller(c).run()</t>
         assert progress &lt; i
     return d</t>
 <t tx="ekr.20111006212449.11858">def get_settings (self):
-    
+
     '''Return a dict containing a representation
     of all settings in leoSettings.leo.
     '''
-    
+
     trace = False
     c,d = self.settings,{}
-    
+
     print('scanning: %s' % c.shortFileName())
 
     settings_node = g.findNodeAnywhere(c,'@settings')
     if not settings_node:
         return self.error('no @settings node')
-        
+
     for p in settings_node.subtree():
         if self.is_setting(p):
             kind,name = self.parse_setting(p)
@@ -6047,7 +6057,7 @@ Controller(c).run()</t>
                 d [kind] = aList
             else:
                 self.error('no name for %s' % (kind))
-                
+
     if trace:
         keys = list(d.keys())
         for key in sorted(keys):
@@ -6058,20 +6068,20 @@ Controller(c).run()</t>
 
     return d</t>
 <t tx="ekr.20111006212449.11859">def is_setting (self,p):
-    
+
     # For now, these are enough
     table = (
         '@bool','@color','@int','@float',
         # '@font', # special case.
         '@ratio','@path','@string',
     )
-    
+
     for s in table:
         if g.match_word(p.h,0,s):
             return True
     return False</t>
 <t tx="ekr.20111006212449.11860">def parse_setting (self,p):
-    
+
     s = p.h
     assert s[0] == '@'
     i = g.skip_id(s,1)
@@ -6082,26 +6092,26 @@ Controller(c).run()</t>
     name = s[i:j]
     return kind,name</t>
 <t tx="ekr.20111006212449.11861">def munge (self,s):
-    
+
     '''Return the canonicalized name for settings and arguments to c.config.getX.'''
-    
+
     s = s.replace('-','').replace('_','').lower()
     return g.toUnicode(s)
 </t>
 <t tx="ekr.20111006212449.11862">def run(self):
-    
+
     import os ; os.system('cls')
-    
+
     self.get_commanders()
     configs = self.get_configs()
     settings = self.get_settings()
-    
+
     if self.errors == 0:
         self.check(configs,settings)
-        
+
     g.trace('done')</t>
 <t tx="ekr.20111007043902.15697">def print_missing(self,format,munged_s,in_list,out_list,munged_in_list,munged_out_list):
-    
+
     '''Print the canonical name, followed by the list of names that match.'''
     assert munged_s in munged_in_list,munged_s
     assert munged_s not in munged_out_list,munged_s
@@ -6109,7 +6119,7 @@ Controller(c).run()</t>
         # Ignore plugins settings and global switches.
         for prefix in ('color','datenodes','http','opml','rst3','todo','trace','vim','zodb'):
             if munged_s.startswith(prefix):
-                return  
+                return
     # Ignore color settings.  They are handled differently...
     for suffix in ('color',):
         if munged_s.endswith(suffix):
@@ -6301,7 +6311,7 @@ main()
 
 path = g.os_path_finalize_join(
     g.app.loadDir,'..','plugins','*.py')
-    
+
 aList = glob.glob(path)
 aList.sort()
 
@@ -14306,6 +14316,8 @@ if 0: # The base class
 **Note**: The importer will copy only the first line of a multiline decorator.</t>
 <t tx="ekr.20170706103545.1">True: Report unchanged written files.</t>
 <t tx="ekr.20170706103843.1"></t>
+<t tx="ekr.20170718054928.1"></t>
+<t tx="ekr.20170718054951.1"></t>
 <t tx="jlunz.20150821113251.1">def html_tag():
     """expand &lt;tag&gt; to 
        &lt;tag&gt;\n&lt;/tag&gt; with proper indendation"""
@@ -15012,6 +15024,8 @@ removing the &lt;| and |&gt;</t>
 <t tx="tbrown.20160130095933.3">Restore pane layout</t>
 <t tx="tbrown.20160130095933.4">Zoom pane</t>
 <t tx="tbrown.20160130100023.1">Pane layout help</t>
+<t tx="tbrown.20170710093248.1">If true, tailing whitespace (spaces and tabs) will be underlined
+with small dots in `trailing_whitespace_color` (default red).</t>
 <t tx="ville.20090701225947.3902"># Open current node in external editor. 'v' is mnemonic for 'vi', because vi users request this most
 # cm-external-editor = Alt-v</t>
 <t tx="ville.20091008201813.3909">Qt ui uses a different (simpler) setup for creating context menus,
