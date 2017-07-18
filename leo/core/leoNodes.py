@@ -2028,6 +2028,11 @@ class VNodeBase(object):
             # The start of the selected body text.
         self._bodyLines = tuple()
         self._sync = None
+            # The sync state of the body:
+            #     None: Neither v._bodyString nor v._bodyLines need sync'ing.
+            #   'body': v._bodyString must be sync'd.
+            #  'lines': v._bodyLines must be sync'd.
+        #
         # To make VNode's independent of Leo's core,
         # wrap all calls to the VNode ctor::
         #
@@ -2237,7 +2242,7 @@ class VNodeBase(object):
     body_unicode_warning = False
 
     def bodyString(self):
-        if self._sync == 'body':
+        if self._sync == 'body': # sync _bodyString.
             self._bodyString = g.joinLines(self._bodyLines)
             self._sync = None
         # This message should never be printed and we want to avoid crashing here!
@@ -2253,7 +2258,7 @@ class VNodeBase(object):
         # Deprecated, but here for compatibility.
     #@+node:vitalije.20170714202238.1: *4* v.bodyLines
     def bodyLines(self):
-        if self._sync == 'lines':
+        if self._sync == 'lines': # sync _bodyLines.
             self._bodyLines = tuple(g.splitLines(self._bodyString))
             self._sync = None
         return self._bodyLines
@@ -2296,8 +2301,7 @@ class VNodeBase(object):
     def hasBody(self):
         '''Return True if this VNode contains body text.'''
         v = self
-        if v._sync is None: return bool(v._bodyLines)
-        return bool(v._bodyString) if v._sync == 'lines' else bool(v._bodyLines)
+        return bool(v._bodyString) if v._sync in (None, 'lines') else bool(v._bodyLines)
     #@+node:ekr.20031218072017.1581: *4* v.headString & v.cleanHeadString
     head_unicode_warning = False
 
