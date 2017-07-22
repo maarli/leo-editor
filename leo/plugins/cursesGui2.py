@@ -1310,6 +1310,32 @@ class LeoCursesGui(leoGui.LeoGui):
             if s:
                 c.last_dir = g.os_path_dirname(s)
             return s
+    #@+node:ekr.20170712145632.2: *5* CGui.createFindDialog
+    def createFindDialog(self, c):
+        '''Create and init a non-modal Find dialog.'''
+        # g.app.globalFindTabManager = c.findCommands.ftm
+        # top = c.frame.top
+            # top is the DynamicWindow class.
+        # w = top.findTab
+        # top.find_status_label.setText('Find Status:')
+
+        ### d = QtWidgets.QDialog()
+        # Fix #516: Hide the dialog. Never delete it.
+
+        # def closeEvent(event, d=d):
+            # event.ignore()
+            # d.hide()
+
+        # d.closeEvent = closeEvent
+        # layout = QtWidgets.QVBoxLayout(d)
+        # layout.addWidget(w)
+        # self.attachLeoIcon(d)
+        # d.setLayout(layout)
+        # c.styleSheetManager.set_style_sheets(w=d)
+        # g.app.gui.setFilter(c, d, d, 'find-dialog')
+            # # This makes most standard bindings available.
+        # d.setModal(False)
+        # return d
     #@+node:ekr.20170430114709.1: *4* CGui.do_key
     def do_key(self, ch_i):
 
@@ -1437,7 +1463,8 @@ class LeoCursesGui(leoGui.LeoGui):
         g.pr("CursesGui oops:", g.callers(4), "should be overridden in subclass")
     #@+node:ekr.20170712145632.1: *4* CGui.openFindDialog & helpers
     def openFindDialog(self, c):
-        if g.unitTesting:
+        top = c.frame.top
+        if g.unitTesting or not top:
             return
         d = self.globalFindDialog
         if not d:
@@ -1450,7 +1477,8 @@ class LeoCursesGui(leoGui.LeoGui):
             ### c.ftm = g.app.globalFindTabManager
             ### fn = c.shortFileName() or 'Untitled'
             ### d.setWindowTitle('Find in %s' % fn)
-            c.frame.top.find_status_edit.setText('')
+            if hasattr(top, 'find_status_edit'):
+                top.find_status_edit.setText('')
         c.inCommand = False
         if d.isVisible():
             # The order is important, and tricky.
@@ -1461,33 +1489,7 @@ class LeoCursesGui(leoGui.LeoGui):
         else:
             d.show()
             d.exec_()
-    #@+node:ekr.20170712145632.2: *5* qt_gui.createFindDialog
-    def createFindDialog(self, c):
-        '''Create and init a non-modal Find dialog.'''
-        # g.app.globalFindTabManager = c.findCommands.ftm
-        # top = c.frame.top
-            # top is the DynamicWindow class.
-        # w = top.findTab
-        # top.find_status_label.setText('Find Status:')
-
-        ### d = QtWidgets.QDialog()
-        # Fix #516: Hide the dialog. Never delete it.
-
-        # def closeEvent(event, d=d):
-            # event.ignore()
-            # d.hide()
-
-        # d.closeEvent = closeEvent
-        # layout = QtWidgets.QVBoxLayout(d)
-        # layout.addWidget(w)
-        # self.attachLeoIcon(d)
-        # d.setLayout(layout)
-        # c.styleSheetManager.set_style_sheets(w=d)
-        # g.app.gui.setFilter(c, d, d, 'find-dialog')
-            # # This makes most standard bindings available.
-        # d.setModal(False)
-        # return d
-    #@+node:ekr.20170712145632.3: *5* qt_gui.findDialogSelectCommander
+    #@+node:ekr.20170712145632.3: *5* CGui.findDialogSelectCommander
     def findDialogSelectCommander(self, c):
         '''Update the Find Dialog when c changes.'''
         if self.globalFindDialog:
@@ -1496,7 +1498,7 @@ class LeoCursesGui(leoGui.LeoGui):
             fn = c.shortFileName() or 'Untitled'
             d.setWindowTitle('Find in %s' % fn)
             c.inCommand = False
-    #@+node:ekr.20170712145632.4: *5* qt_gui.hideFindDialog
+    #@+node:ekr.20170712145632.4: *5* CGui.hideFindDialog
     def hideFindDialog(self):
         pass
         # d = self.globalFindDialog
