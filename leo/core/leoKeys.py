@@ -2280,6 +2280,27 @@ class KeyHandlerClass(object):
 
         commandName = 'open-with-%s' % name.lower()
         k.registerCommand(commandName, openWithCallback, shortcut=shortcut)
+    #@+node:ekr.20170901070753.1: *4* k.bindLate
+    def bindLate(self, commandName, func, pane='all', shortcut='None'):
+        '''New in Leo 5.6: A convenience method for late bindings.'''
+        trace = False and not g.unitTesting # and commandName.startswith('bookmarks')
+        c, k = self.c, self
+        stroke=k.strokeFromSetting(shortcut) # Must be a stroke, even if it represents an empty shortcut.
+        if trace: g.trace('%7s %35s %s' % (pane, commandName, shortcut))
+        # Similar to k.makeBindingsFromCommandsDict.
+        key, aList = c.config.getShortcut(commandName)
+        for si in aList:
+            assert isinstance(si, g.ShortcutInfo)
+            if commandName == si.commandName and not si.pane.endswith('-mode'):
+                k.bindKey(
+                    commandName=commandName,
+                    callback=func,
+                    pane=si.pane,
+                    shortcut=stroke, # Must be a Stroke.
+                    tag='k.bindLate',
+                )
+        if shortcut:
+            k.makeMasterGuiBinding(stroke)
     #@+node:ekr.20061031131434.95: *4* k.checkBindings
     def checkBindings(self):
         '''Print warnings if commands do not have any @shortcut entry.
