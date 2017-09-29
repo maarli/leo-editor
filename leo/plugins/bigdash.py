@@ -36,7 +36,7 @@ Requires the whoosh library ('easy_install whoosh') to do full text searches.
 #@+<< imports >>
 #@+node:ekr.20140920041848.17949: ** << imports >> (bigdash.py)
 import leo.core.leoGlobals as g
-from leo.core.leoQt import QtCore,QtGui,QtWidgets,QtWebKitWidgets
+from leo.core.leoQt import isQt5,QtCore,QtWidgets,QtWebKitWidgets # QtGui
 # This code no longer uses leo.plugins.leofts.
 try:
     # pylint: disable=no-name-in-module
@@ -51,6 +51,7 @@ except ImportError:
 import os
 import sys
 #@-<< imports >>
+index_error_given = False
 #@+others
 #@+node:ville.20120225144051.3580: ** top-level functions
 #@+node:ekr.20140920041848.17924: *3* global-search command (bigdash.py)
@@ -59,7 +60,7 @@ def global_search_f(event):
     """
     Do global search.
     To restore the original appearance of the window, type help.
-    
+
     The per-commander @int fts_max_hits setting controls the maximum hits returned.
     """
     c = event['c']
@@ -72,17 +73,11 @@ def init ():
     '''Return True if the plugin has loaded successfully.'''
     ok = g.app.gui.guiName() == "qt"
     if ok:
-        try:
-            QtWebKitWidgets.QWebView(None)
-        except AttributeError:
-            print('bigdash.py: QWebView must be installed')
-            ok = False
-    if ok:
         g.app._global_search = GlobalSearch()
         g.plugin_signon(__name__)
     return ok
 #@+node:ekr.20140919160020.17909: ** class BigDash
-class BigDash:
+class BigDash(object):
     #@+others
     #@+node:ekr.20140919160020.17916: *3* __init__
     def __init__(self):
@@ -95,21 +90,35 @@ class BigDash:
     #@+node:ekr.20140919160020.17912: *3* add_cmd_handler
     def add_cmd_handler(self,f):
         self.handlers.append(f)
-    #@+node:ekr.20140919160020.17915: *3* create_ui
+    #@+node:ekr.20140919160020.17915: *3* create_ui (bigdash.py)
     def create_ui(self):
 
         self.w = w = QtWidgets.QWidget()
         w.setWindowTitle("Leo search")
         lay = QtWidgets.QVBoxLayout()
-        self.web = web = QtWebKitWidgets.QWebView(w)
-        self.web.linkClicked.connect(self._lnk_handler)
+        # Workaround #304: https://github.com/leo-editor/leo-editor/issues/304
+        if isQt5 and sys.platform.startswith('win'):
+            self.web = web = QtWidgets.QTextBrowser(w)
+        else:
+            self.web = web = QtWebKitWidgets.QWebView(w)
+        try:
+            # PyQt4
+            self.web.linkClicked.connect(self._lnk_handler)
+            # AttributeError: 'QWebEngineView' object has no attribute 'linkClicked'
+        except AttributeError:
+            # PyQt5
+            pass # Not clear what to do.
         self.led = led = QtWidgets.QLineEdit(w)
         led.returnPressed.connect(self.docmd)
         lay.addWidget(led)
         lay.addWidget(web)
         self.lc = lc = LeoConnector()
-        web.page().mainFrame().addToJavaScriptWindowObject("leo",lc)
-        web.page().setLinkDelegationPolicy(QtWebKitWidgets.QWebPage.DelegateAllLinks)
+        try:
+            web.page().mainFrame().addToJavaScriptWindowObject("leo",lc)
+            web.page().setLinkDelegationPolicy(QtWebKitWidgets.QWebPage.DelegateAllLinks)
+        except AttributeError:
+            # PyQt5
+            pass # Not clear what to do.
         w.setLayout(lay)
         #web.load(QUrl("http://google.fi"))
         self.show_help()
@@ -139,14 +148,22 @@ class BigDash:
             s = """
     <h12>Dashboard</h2>
     <table cellspacing="10">
-    <tr><td> <b>s</b> foobar</td><td>   <i>Simple string search for "foobar" in all open documents</i></td></tr>
-    <tr><td> <b>fts init</b></td><td>   <i>Initialize full text search  (create index) for all open documents</i></td></tr>
-    <tr><td> <b>fts add</b></td><td>    <i>Add currently open, still unindexed leo files to index</i></td></tr>                    
-    <tr><td> <b>f</b> foo bar</td><td>   <i>Do full text search for node with terms 'foo' AND 'bar'</i></td></tr>
-    <tr><td> <b>f</b> h:foo b:bar wild?ards*</td><td>   <i>Search for foo in heading and bar in body, test wildcards</i></td></tr>
-    <tr><td> <b>help</b></td><td>       <i>Show this help</i></td></tr>
-    <tr><td> <b>stats</b></td><td>      <i>List indexed files</i></td></tr>
-    <tr><td> <b>fts refresh</b></td><td><i>re-index files</i></td></tr>
+    <tr><td> <b>s</b> foobar</td><td>
+        <i>Simple string search for "foobar" in all open documents</i></td></tr>
+    <tr><td> <b>fts init</b></td><td>
+        <i>Initialize full text search  (create index) for all open documents</i></td></tr>
+    <tr><td> <b>fts add</b></td><td>
+        <i>Add currently open, still unindexed leo files to index</i></td></tr>
+    <tr><td> <b>f</b> foo bar</td><td>
+        <i>Do full text search for node with terms 'foo' AND 'bar'</i></td></tr>
+    <tr><td> <b>f</b> h:foo b:bar wild?ards*</td><td>
+        <i>Search for foo in heading and bar in body, test wildcards</i></td></tr>
+    <tr><td> <b>help</b></td><td>
+        <i>Show this help</i></td></tr>
+    <tr><td> <b>stats</b></td><td>
+        <i>List indexed files</i></td></tr>
+    <tr><td> <b>fts refresh</b></td><td>
+        <i>re-index files</i></td></tr>
     </table>
     """
         else:
@@ -161,7 +178,7 @@ class BigDash:
 
     #@-others
 #@+node:ekr.20140919160020.17897: ** class GlobalSearch
-class GlobalSearch:
+class GlobalSearch(object):
     #@+others
     #@+node:ekr.20140919160020.17898: *3* __init__
     def __init__(self):
@@ -178,11 +195,11 @@ class GlobalSearch:
             self.bd.add_cmd_handler(self.do_stats)
         else:
             self.fts = None
-        self.anchors = {}        
+        self.anchors = {}
     #@+node:ekr.20140919160020.17922: *3* add_anchor
     def add_anchor(self,l,tgt, text):
 
-        l.append('<a href="%s">%s</a>' % (tgt, text))    
+        l.append('<a href="%s">%s</a>' % (tgt, text))
     #@+node:ekr.20140919160020.17906: *3* do_find
     def do_find(self, tgt, q, target_outline=None):
         self._old_tgt = tgt
@@ -205,19 +222,19 @@ class GlobalSearch:
         outlines = {}
         for r in res:
             if '#' in r["parent"]:
-                file_name, node = r["parent"].split('#', 1)
+                file_name, junk = r["parent"].split('#', 1)
             else:
-                file_name, node = r["parent"], None                
+                file_name = r["parent"]
             outlines.setdefault(file_name, []).append(r)
         hits.append("<p>%d hits (max. hits reported = %d)</p>"%
             (len(res), fts_max_hits))
         if len(outlines) > 1:
             hits.append("<p><div>Hits in:</div>")
             for outline in outlines:
-                hits.append("<div><a href='#%s'>%s</a>"%(outline, outline))   
+                hits.append("<div><a href='#%s'>%s</a>"%(outline, outline))
                 if outline == target_outline:
                     hits.append("<b> (moved to top)</b>")
-                hits.append("</div>")       
+                hits.append("</div>")
             hits.append("</p>")
         outline_order = outlines.keys()
         outline_order.sort(key=lambda x:'' if x==target_outline else x)
@@ -239,8 +256,8 @@ class GlobalSearch:
                 hl = r.get("highlight")
                 if hl:
                     hits.append("<pre>%s</pre>" % hl)
-                hits.append("""<div><small><i>%s</i>%s</small></div>""" % (r["parent"], opener))          
-                hits.append("</p>")    
+                hits.append("""<div><small><i>%s</i>%s</small></div>""" % (r["parent"], opener))
+                hits.append("</p>")
             hits.append("<hr/></div>")
         hits.append("</body></html>")
         html = "".join(hits)
@@ -283,7 +300,7 @@ class GlobalSearch:
                 fts.drop_document(fn)
                 fts.index_nodes(c2)
             g.es_print('Refresh complete')
-            gc = self.gnxcache         
+            gc = self.gnxcache
             gc.clear()
             gc.update_new_cs()
         if q:
@@ -315,10 +332,10 @@ class GlobalSearch:
             c.selectPosition(p)
             c.bringToFront()
             return
-        g.es_print("Not found in any open document: %s" % l)        
+        g.es_print("Not found in any open document: %s" % l)
     #@+node:ekr.20140919160020.17903: *3* do_search
-    def do_search(self,tgt, qs):   
-         
+    def do_search(self,tgt, qs):
+
         ss = str(qs)
         hitparas = []
         def em(l):
@@ -327,7 +344,7 @@ class GlobalSearch:
             return False
         s = ss[2:]
         for ndxc,c2 in enumerate(g.app.commanders()):
-            hits = c2.find_b(s)                          
+            hits = c2.find_b(s)
             for ndxh, h in enumerate(hits):
                 b = h.b
                 mlines = self.matchlines(b, h.matchiter)
@@ -340,9 +357,9 @@ class GlobalSearch:
                     em("%s<b>%s</b>%s" % (line[:st], line[st:en], line[en:]))
                     em(post)
                     em("</pre>")
-                em("""<p><small><i>%s</i></small></p>""" % h.get_UNL()) 
+                em("""<p><small><i>%s</i></small></p>""" % h.get_UNL())
         html = "".join(hitparas)
-        tgt.web.setHtml(html)     
+        tgt.web.setHtml(html)
         self.bd.set_link_handler(self.do_link)
 
     #@+node:ekr.20140919160020.17900: *3* do_stats
@@ -364,7 +381,7 @@ class GlobalSearch:
             ipost = b.find("\n", en +1 )
             spre = b[ipre +1 : st-1] + "\n"
             spost = b[en : ipost]
-            
+
             res.append((li, (m.start()-st, m.end()-st ), (spre, spost)))
         return res
     #@+node:ekr.20140919160020.17919: *3* open_unl
@@ -381,22 +398,20 @@ class GlobalSearch:
         self.bd.w.show()
     #@-others
 #@+node:ekr.20140919160020.17920: ** class LeoConnector
-class LeoConnector(QtCore.QObject):
-    pass
+if QtCore:
+
+    class LeoConnector(QtCore.QObject):
+        pass
 #@+node:ekr.20140920041848.17939: ** class LeoFts
-class LeoFts:    
+class LeoFts(object):
     #@+others
-    #@+node:ekr.20140920041848.17940: *3* __init__
+    #@+node:ekr.20140920041848.17940: *3* fts.__init__
     def __init__(self,gnxcache,idx_dir):
         '''Ctor for LeoFts class (bigdash.py)'''
         self.gnxcache = gnxcache
         self.idx_dir = idx_dir
-        if not os.path.exists(idx_dir):
-            os.mkdir(idx_dir)
-            self.create()
-        else:
-            self.ix = open_dir(idx_dir)
-    #@+node:ekr.20140920041848.17941: *3* schema
+        self.ix = self.open_index(idx_dir)
+    #@+node:ekr.20140920041848.17941: *3* fts.schema
     def schema(self):
 
         my_analyzer = RegexTokenizer("[a-zA-Z_]+") | LowercaseFilter() | StopFilter()
@@ -408,12 +423,12 @@ class LeoFts:
             parent=ID(stored=True),
             doc=ID(stored=True))
         return schema
-    #@+node:ekr.20140920041848.17942: *3* create
+    #@+node:ekr.20140920041848.17942: *3* fts.create
     def create(self):
-        
+
         schema = self.schema()
-        self.ix = ix = create_in(self.idx_dir, schema)
-    #@+node:ekr.20140920041848.17943: *3* index_nodes
+        self.ix = create_in(self.idx_dir, schema)
+    #@+node:ekr.20140920041848.17943: *3* fts.index_nodes
     def index_nodes(self,c):
         writer = self.ix.writer()
         doc = c.mFileName
@@ -423,25 +438,63 @@ class LeoFts:
                 par = p.parent().get_UNL()
             else:
                 par = c.mFileName
-            writer.add_document(h=p.h, b=p.b, gnx=unicode(p.gnx), parent=par, doc=doc)
+            writer.add_document(
+                h=p.h, b=p.b,
+                gnx=g.toUnicode(p.gnx),
+                parent=par,
+                doc=doc)
         writer.commit()
         self.gnxcache.clear()
-    #@+node:ekr.20140920041848.17944: *3* drop_document
+    #@+node:ekr.20140920041848.17944: *3* fts.drop_document
     def drop_document(self, docfile):
         writer = self.ix.writer()
         g.es_print("Drop index: %s" % g.shortFileName(docfile))
         writer.delete_by_term("doc", docfile)
         writer.commit()
-    #@+node:ekr.20140920041848.17945: *3* statistics
+    #@+node:ekr.20170124095047.1: *3* fts.open_index
+    def open_index(self, idx_dir):
+        global index_error_given
+        if os.path.exists(idx_dir):
+            try:
+                return open_dir(idx_dir)
+            except ValueError:
+                if not index_error_given:
+                    index_error_given = True
+                    g.es_print('bigdash.py: exception in whoosh.open_dir')
+                    g.es_print('please remove this directory:', g.os_path_normpath(idx_dir))
+                return None
+                # Doesn't work: open_dir apparently leaves resources open,
+                # so shutil.rmtree(idx_dir) fails.
+                    # g.es_print('re-creating', repr(idx_dir))
+                    # try:
+                        # import shutil
+                        # shutil.rmtree(idx_dir)
+                        # os.mkdir(idx_dir)
+                        # self.create()
+                        # return open_dir(idx_dir)
+                    # except Exception as why:
+                        # g.es_print(why)
+                        # return None
+        else:
+            try:
+                os.mkdir(idx_dir)
+                self.create()
+                return open_dir(idx_dir)
+            except Exception:
+                g.es_exception()
+                return None
+
+    #@+node:ekr.20140920041848.17945: *3* fts.statistics
     def statistics(self):
         r = {}
+        # pylint: disable=no-member
         with self.ix.searcher() as s:
             r['documents'] = list(s.lexicon("doc"))
         # print("stats: %s" % r)
         return r
-    #@+node:ekr.20140920041848.17946: *3* search
-    def search(self, searchstring, limit=30):        
-                
+    #@+node:ekr.20140920041848.17946: *3* fts.search
+    def search(self, searchstring, limit=30):
+
         res = []
         gnxcache = self.gnxcache
         gnxcache.update_new_cs()
@@ -463,12 +516,12 @@ class LeoFts:
                     rr['f'] = False
                 res.append(rr)
         return res
-    #@+node:ekr.20140920041848.17947: *3* close
+    #@+node:ekr.20140920041848.17947: *3* fts.close
     def close(self):
         self.ix.close()
     #@-others
 #@+node:ekr.20140920041848.17933: ** class GnxCache
-class GnxCache:
+class GnxCache(object):
     """ map gnx => vnode """
     #@+others
     #@+node:ekr.20140920041848.17934: *3* __init__
@@ -491,7 +544,7 @@ class GnxCache:
 
         if not self.ps:
             self.update_new_cs()
-        res = self.ps.get(gnx,None)                               
+        res = self.ps.get(gnx,None)
         return res
     #@+node:ekr.20140920041848.17937: *3* get_p
     def get_p(self,gnx):
@@ -521,7 +574,7 @@ class GnxCache:
 #@-others
 
 if __name__ == '__main__':
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     bd = GlobalSearch()
     sys.exit(app.exec_())
 

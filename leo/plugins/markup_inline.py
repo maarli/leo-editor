@@ -25,15 +25,15 @@ def markup_inline(c, kind='unknown'):
     # find out if last action was open or close, creates entry if needed
     last_type = c.user_dict.setdefault(
         'markup_inline', {'last': 'close'})['last']
-    
+
     p = c.p
-    
+
     delim = {
         'bold': ('**','**'),
         'italic': ('*','*'),
         'underline': (':ul:`','`'),
     }[kind]
-    
+
     if c.frame.body.bodyCtrl.hasSelection():
         c.user_dict['markup_inline']['last'] = 'close'
         i,j = c.frame.body.bodyCtrl.getSelectionRange()
@@ -66,7 +66,7 @@ def markup_inline(c, kind='unknown'):
     c.setChanged(True)
     p.setDirty(True)
     c.redraw()
-    c.bodyWantsFocusNow()        
+    c.bodyWantsFocusNow()
 
 def cmd_bold(c):
     markup_inline(c, kind='bold')

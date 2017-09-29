@@ -10,7 +10,7 @@ import os
 #@+node:ekr.20141110071911.17: ** << define classes >>
 #@+others
 #@+node:ekr.20101110094152.5824: *3* class _AssignUniqueConstantValue
-class   _AssignUniqueConstantValue:
+class   _AssignUniqueConstantValue(object):
     """ Provide unique value to be used as a constant """
 
     #@+others
@@ -45,7 +45,7 @@ class   _AssignUniqueConstantValue:
         return(self.UniqueInternalValue)
     #@-others
 #@+node:ekr.20101110094152.5830: *3* class _ConfigOptions
-class _ConfigOptions:
+class _ConfigOptions(object):
     """Hold current configuration options."""
     #@+others
     #@+node:ekr.20101110094152.5831: *4* __init__
@@ -70,7 +70,7 @@ class _ConfigOptions:
                 # Leo uses unicode, convert to plain ascii
                 name = str(containsAscConfigDirective.group(1))
                 value = str(containsAscConfigDirective.group(2))
-                if self.current.has_key(name):
+                if name in self.current:
                     self.current[name] = value
                 else:
                     g.es(vnode.headString())
@@ -128,13 +128,13 @@ def CodeChunk(text, width=72):
     lastSpacePosition = 0
     shortWidth = width - 4
     prefix = ''
-    suffix = ' \\'
+    # suffix = ' \\'
     textLen = len(text)
     if width > textLen:
         chunkList.append(text)
     else:
         while chunkEnd < textLen:
-            if len(chunkList) > 0:
+            if chunkList:
                 prefix = '  '
             chunkEnd = chunkStart + shortWidth
             if chunkEnd > textLen:
@@ -173,10 +173,10 @@ def GetAscFilename(c,p):
         containsAscFileDirective = patternAscDirectiveFile.match(line)
         if containsAscFileDirective:
             ascFileName = containsAscFileDirective.group(1)
-            if (ascFileName != None):
+            if (ascFileName is not None):
                 base = os.path.split(c.mFileName)[0]  # linux or windows
-                if (((base[0]=="/") and (ascFileName[0] != "/")) or 
-                   ((base[1]==":") and (ascFileName[1] != ":"))): 
+                if (((base[0]=="/") and (ascFileName[0] != "/")) or
+                   ((base[1]==":") and (ascFileName[1] != ":"))):
                     # no full pathname specified
                     ascFileName = os.path.join(base, ascFileName)
                 Conf.GetCurrentOptions(c,p)
@@ -189,8 +189,8 @@ def SectionUnderline(h,level,v):
         g.es("Section level is less than 1:\n  %s" % v.headString())
         level = 1
     elif level > asciiDocSectionLevels - 1:
-        g.es("Section level is more than maximum Section Levels: %d\n  %s" \
-           % (asciiDocSectionLevels, v.headString()))
+        g.es("Section level is more than maximum Section Levels: %d\n  %s" % (
+            asciiDocSectionLevels, v.headString()))
         level = asciiDocSectionLevels - 1
     str = Conf.current["headingUnderlines"][level]  #'
     return str*max(len(h),1)
@@ -200,7 +200,7 @@ def WriteAll(c):
     p = c.rootPosition()
     while p:
         ascFileN = GetAscFilename(c,p)
-        if ascFileN != None:
+        if ascFileN:
             WriteTreeAsAsc(p,ascFileN)
             p.moveToNodeAfterTree()
         else:
@@ -241,7 +241,7 @@ def WriteNode(v,startinglevel, ascFile):
             ascFile.write("%s\n" % lineString)
         except IOError:
             g.es("Could not write to output file: %s" % ascFile.name)
-            statusOfWriteOutputLine = CV.END_PROGRAM
+            # statusOfWriteOutputLine = CV.END_PROGRAM
 
     # Get the headline text.
     h = v.headString()
@@ -310,7 +310,7 @@ def WriteNode(v,startinglevel, ascFile):
                 continue
         # We have something to print, so print heading.
         if lastLinePrintedType == CV.LINE_WAS_NONE:
-            if (len(h) > 0) and (Conf.current["PrintHeadings"] == "on"):
+            if h and (Conf.current["PrintHeadings"] == "on"):
                 WriteOutputLine("\n\n%s" % h)
                 WriteOutputLine(SectionUnderline(h,v.level()-startinglevel,v))
                 lastLinePrintedType = CV.LINE_WAS_HEAD
@@ -349,7 +349,7 @@ def WriteNode(v,startinglevel, ascFile):
             lastLinePrintedType = CV.LINE_WAS_CODE
         else:
             WriteOutputLine("%s" % line)
-        if statusOfWriteOutputLine != None:
+        if statusOfWriteOutputLine is not None:
             return statusOfWriteOutputLine
 
     if lastLinePrintedType == CV.LINE_WAS_CODE:
@@ -357,13 +357,13 @@ def WriteNode(v,startinglevel, ascFile):
         if inCodeExtract:
             WriteOutputLine("\n%s" % Conf.current["delimiterForCodeSectionDefinition"])
             inCodeExtract = False
-    if containsAscIignore != None:
+    if containsAscIignore is not None:
         return CV.NODE_IGNORE # flag ignore tree to caller
 #@+node:ekr.20101110094152.5838: *3* WriteTreeAsAsc
 def WriteTreeAsAsc(p,fn):
     'Writes the tree under p to the file ascFile'
     try:
-        ascFile = file(fn,'w')
+        ascFile = open(fn,'w')
     except IOError:
         g.es("Could not open output file: %s" % fn)
         return
@@ -390,7 +390,7 @@ def WriteTreeOfCurrentNode(c):
             break
         else:
             p.moveToParent()
-    if ascFileN == None:
+    if ascFileN is None:
         g.es("Sorry, there was no @ascfile directive in this outline tree.")
     else:
         WriteTreeAsAsc(p,ascFileN)

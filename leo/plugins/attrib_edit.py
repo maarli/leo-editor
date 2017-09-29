@@ -40,7 +40,7 @@ attrib-edit-modes
     Select which attribute setting / getting modes to use.  More than one mode
     can be used at the same time.
 
-    You can also control which modes are active by listing them 
+    You can also control which modes are active by listing them
     with the @data attrib_edit_active_modes setting.  For example::
 
         Field:
@@ -191,7 +191,7 @@ class AttributeGetterUA(AttributeGetter):
                             # ek is '_int' or similar
                             type_ = self.typeMap[ek]
                             for ekt in d[k][ek]:
-                                ans.append((self, 
+                                ans.append((self,
                                     ekt, d[k][ek][ekt], tuple(path+['_edit',ek,ekt]),
                                     type_, k != '_edit'))
                         else:
@@ -380,7 +380,7 @@ class AttributeGetterColon(AttributeGetter):
             if not i or i[0].isspace():
                 continue
             words = i.split(None, 1)
-            if words and len(words[0]) and words[0][-1] == ':':
+            if words and words[0] and words[0][-1] == ':':
                 if len(words) == 1:
                     words.append('')
                 ans.append( (self, words[0][:-1], words[1], words[0][:-1], str, False) )
@@ -393,7 +393,7 @@ class AttributeGetterColon(AttributeGetter):
 
         for n,i in enumerate(parts[:99]):
             words = i.split(None, 1)
-            if words and len(words[0]) and words[0][-1] == ':' and words[0][:-1] == path:
+            if words and words[0] and words[0][-1] == ':' and words[0][:-1] == path:
                 parts[n] = "%s: %s" % (path, value)
                 v.b = '\n'.join(parts)
                 break
@@ -406,7 +406,7 @@ class AttributeGetterColon(AttributeGetter):
 
         for n,i in enumerate(parts[:99]):
             words = i.split(None, 1)
-            if words and len(words[0]) and words[0][-1] == ':' and words[0][:-1] == path:
+            if words and words[0] and words[0][-1] == ':' and words[0][:-1] == path:
                 del parts[n]
                 v.b = '\n'.join(parts)
                 break
@@ -443,7 +443,7 @@ class ListDialog(QtWidgets.QDialog):
             cb = QtWidgets.QCheckBox(entry[0])
             self.buttons.append(cb)
             if entry[1]:
-                cb.setCheckState(cb.Checked)
+                cb.setCheckState(QtCore.Qt.Checked)
             hbox.addWidget(cb)
             salo.addLayout(hbox)
         sa.setWidget(frame)
@@ -463,7 +463,7 @@ class ListDialog(QtWidgets.QDialog):
     def writeBack(self, event=None):
 
         for n,i in enumerate(self.buttons):
-            self.entries[n][1] = (i.checkState() == i.Checked)
+            self.entries[n][1] = (i.isChecked())
         self.accept()
     #@-others
 #@+node:tbrown.20091010211613.5257: ** class editWatcher
@@ -492,7 +492,7 @@ class editWatcher(object):
         if not self._widget:
             self._widget = w = QtWidgets.QLineEdit(str(self.value))
             w.textChanged.connect(self.updateValue)
-                # QtCore.QObject.connect(w, 
+                # QtCore.QObject.connect(w,
                     # QtCore.SIGNAL("textChanged(QString)"), self.updateValue)
             self._widget.focusOutEvent = self.lostFocus
             # see lostFocus()
@@ -522,7 +522,7 @@ class editWatcher(object):
     #X         a = a.setdefault(i, {})
     #X     a[path[-1]] = value
 #@+node:tbrown.20091009210724.10979: ** class attrib_edit_Controller
-class attrib_edit_Controller:
+class attrib_edit_Controller(object):
 
     '''A per-commander class that manages attribute editing.'''
 
@@ -555,8 +555,8 @@ class attrib_edit_Controller:
 
         # 'body' or 'tab' mode
         # self.guiMode = c.config.getString('attrib_edit_placement') or 'tab'
-        
-        self.guiMode = 'tab'  
+
+        self.guiMode = 'tab'
         # body mode in not compatible with nested_splitter, causes hard crash
 
         if self.guiMode == 'body':
@@ -731,7 +731,7 @@ class attrib_edit_Controller:
         dat.sort(key=lambda x: x[0])
 
         res = ListDialog(self.parent, "Enter attribute path",
-            "Enter path to attribute (space separated words)", 
+            "Enter path to attribute (space separated words)",
             dat)
 
         res.exec_()
@@ -765,7 +765,7 @@ class attrib_edit_Controller:
         modes = [ [i[0].name(), i[1]] for i in self.getsetters ]
 
         res = ListDialog(self.parent, "Enter attribute path",
-            "Enter path to attribute (space separated words)", 
+            "Enter path to attribute (space separated words)",
             modes)
 
         res.exec_()
@@ -778,20 +778,28 @@ class attrib_edit_Controller:
 
         self.updateEditorInt()
     #@-others
-#@+node:tbrown.20091029101116.1415: ** cmd_Modes
-def cmd_Modes(c):
+#@+node:tbrown.20091029101116.1415: ** cmd_Modes (attrib_edit_Controller)
+@g.command('attrib-edit-modes')
+def cmd_Modes(event):
+    c = event.get('c')
     c.attribEditor.manageModes()
-#@+node:tbrown.20091103080354.1413: ** cmd_Manage
-def cmd_Manage(c):
+#@+node:tbrown.20091103080354.1413: ** cmd_Manage (attrib_edit_Controller)
+@g.command('attrib-edit-manage')
+def cmd_Manage(event):
+    c = event.get('c')
     c.attribEditor.manageAttrib()
-#@+node:tbrown.20091029101116.1419: ** cmd_Create
-def cmd_Create(c):
+#@+node:tbrown.20091029101116.1419: ** cmd_Create (attrib_edit_Controller)
+@g.command('attrib-edit-create')
+def cmd_Create(event):
+    c = event.get('c')
     c.attribEditor.createAttrib()
-#@+node:tbrown.20091029101116.1421: ** cmd_CreateReadonly
+#@+node:tbrown.20091029101116.1421: ** cmd_CreateReadonly (attrib_edit_Controller)
 def Xcmd_CreateReadonly(c):
     c.attribEditor.createAttrib(readonly=True)
-#@+node:tbrown.20091029101116.1426: ** cmd_Scan
-def cmd_Scan(c):
+#@+node:tbrown.20091029101116.1426: ** cmd_Scan (attrib_edit_Controller)
+@g.command('attrib-edit-scan')
+def cmd_Scan(event):
+    c = event.get('c')
     c.attribEditor.scanAttribs()
 #@-others
 #@@language python

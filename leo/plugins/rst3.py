@@ -231,7 +231,7 @@ else:
 #@+node:ekr.20090429055156.63: *3* runUnitTests
 def runUnitTests(c):
 
-    controller = rstClass(c)
+    rstClass(c)
     p = g.findNodeAnywhere(c,'UnitTests')
     if p:
         c.selectPosition(p)
@@ -251,7 +251,7 @@ class linkAnchorParserClass (HTMLParser.HTMLParser):
 
     '''
     A class to recognize anchors and links in HTML documents.
-    A special marker is the "node_marker" which demarkates the border between 
+    A special marker is the "node_marker" which demarkates the border between
     node and the next.
     '''
 
@@ -359,7 +359,7 @@ class htmlParserClass (linkAnchorParserClass):
     def handle_starttag (self,tag,attrs):
         '''
         1. Find out if the current tag is an achor.
-        2. If it is an anchor, we check if this anchor marks the beginning of a new 
+        2. If it is an anchor, we check if this anchor marks the beginning of a new
            node
         3. If a new node begins, then we might have to store html code for the previous
            node.
@@ -460,7 +460,11 @@ class anchor_htmlParserClass (linkAnchorParserClass):
             self.anchor_map[self.current_file] = (self.current_file, self.p)
             simple_name = g.os_path_split(self.current_file)[1]
             self.anchor_map[simple_name] = self.anchor_map[self.current_file]
-            if bwm_file: print >> bwm_file, "anchor(1): current_file:", self.current_file, "position:", self.p, "Simple name:", simple_name
+            if bwm_file: print >> bwm_file, (
+                "anchor(1): current_file:", self.current_file,
+                "position:", self.p,
+                "Simple name:", simple_name,
+            )
             # Not sure what to do here, exactly. Do I need to manipulate
             # the pathname?
 
@@ -524,7 +528,7 @@ class link_htmlparserClass (linkAnchorParserClass):
     #@-others
 #@-others
 #@+node:ekr.20050805162550.8: ** class rstClass
-class rstClass:
+class rstClass(object):
 
     '''A class to write rst markup in Leo outlines.'''
 
@@ -569,7 +573,7 @@ class rstClass:
         self.nodeNumber = 0
         # All nodes are numbered so that unique anchors can be generated.
 
-        self.http_map = {} 
+        self.http_map = {}
         # Keys are named hyperlink targets.  Value are positions.
         # The targets mark the beginning of the html code specific
         # for this position.
@@ -596,7 +600,7 @@ class rstClass:
         self.initHeadlineCommands() # Only needs to be done once.
         self.initSingleNodeOptions()
         self.addMenu()
-    #@+node:ekr.20050805162550.12: *4* addMenu
+    #@+node:ekr.20050805162550.12: *4* addMenu (rstClass, rst3.py)
     def addMenu (self):
 
         c = self.c ; editMenu = c.frame.menu.getMenu('Edit')
@@ -604,15 +608,12 @@ class rstClass:
         def rst3PluginCallback (event=None):
             self.processTopTree(c.p)
 
-        c.k.registerCommand('write-restructured-text',shortcut=None,
-            func=rst3PluginCallback,pane='all',verbose=False)
-
+        c.k.registerCommand('write-restructured-text', rst3PluginCallback)
         table = (
             ("-",None,None),
             ### ("Write Restructed Text","",rst3PluginCallback),
             '&write-restructured-text',
         )
-
         c.frame.menu.createMenuEntries(editMenu,table,dynamicMenu=True)
     #@+node:ekr.20050813083007: *4* initHeadlineCommands
     def initHeadlineCommands (self):
@@ -853,7 +854,7 @@ class rstClass:
                 ('default_path_prefix','default_prefix',''), # '@rst-default-path'
                 ('rst_prefix','code_mode',False), # '@rst'
                 ('ignore_headline_prefix','ignore_this_headline',True), # '@rst-no-head'
-                ('show_headline_prefix','show_this_headline',True), # '@rst-head'  
+                ('show_headline_prefix','show_this_headline',True), # '@rst-head'
                 ('ignore_headlines_prefix','show_headlines',False), # '@rst-no-headlines'
                 ('ignore_prefix','ignore_this_tree',True),      # '@rst-ignore'
                 ('ignore_node_prefix','ignore_this_node',True), # '@rst-ignore-node'
@@ -879,21 +880,16 @@ class rstClass:
             return {}
     #@+node:ekr.20050807120331.2: *5* scanNodeForOptions
     def scanNodeForOptions (self,p):
-
-        '''Return a dictionary containing all the option-name:value entries in p.
+        '''
+        Return a dictionary containing all the option-name:value entries in p.
 
         Such entries may arise from @rst-option or @rst-options in the headline,
-        or from @ @rst-options doc parts.'''
-
-        h = p.h
-
+        or from @ @rst-options doc parts.
+        '''
         d = self.scanHeadlineForOptions(p)
-
         d2 = self.scanForOptionDocParts(p,p.b)
-
         # A fine point: body options over-ride headline options.
         d.update(d2)
-
         return d
     #@+node:ekr.20050808070018: *5* scanOption
     def scanOption (self,p,s):
@@ -950,7 +946,7 @@ class rstClass:
             # g.trace(p.h,d)
             for key in d.keys():
                 ivar = self.munge(key)
-                if not ivar in seen:
+                if ivar not in seen:
                     seen.append(ivar)
                     val = d.get(key)
                     self.setOption(key,val,p.h)
@@ -999,7 +995,7 @@ class rstClass:
         trace = False and not g.unitTesting
         ivar = self.munge(name)
         if trace:
-            if not self.optionsDict.has_key(ivar):
+            if ivar not in self.optionsDict:
                 g.trace('init %24s %20s %s %s' % (ivar, val, tag, self))
             elif self.optionsDict.get(ivar) != val:
                 g.trace('set  %24s %20s %s %s' % (ivar, val, tag, self))
@@ -1041,16 +1037,22 @@ class rstClass:
     #@+node:ekr.20051121102358: *5* processTopTree
     def processTopTree (self,p,justOneFile=False):
 
-        c = self.c ; current = p.copy()
-
+        current = p.copy()
         for p in current.self_and_parents():
             h = p.h
             if h.startswith('@rst') and not h.startswith('@rst-'):
-                self.processTree(p,ext=None,toString=False,justOneFile=justOneFile)
+                self.processTree(p,
+                    ext=None,
+                    toString=False,
+                    justOneFile=justOneFile,
+                )
                 break
         else:
-            self.processTree(current,ext=None,toString=False,justOneFile=justOneFile)
-
+            self.processTree(current,
+                ext=None,
+                toString=False,
+                justOneFile=justOneFile,
+            )
         g.blue('done')
     #@+node:ekr.20050805162550.17: *5* processTree
     def processTree(self,p,ext,toString,justOneFile):
@@ -1166,15 +1168,15 @@ class rstClass:
         return ok
     #@+node:ekr.20050809082854.1: *5* writeToDocutils (sets argv) & helper
     def writeToDocutils (self,s):
-
-        '''Send s to docutils using the writer implied by self.ext and return the result.'''
-
-        openDirectory = self.c.frame.openDirectory
+        '''
+        Send s to docutils using the writer implied by self.ext and return the
+        result.
+        '''
+        # openDirectory = self.c.frame.openDirectory
         overrides = {'output_encoding': self.encoding }
-
         # Compute the args list if the stylesheet path does not exist.
         styleSheetArgsDict = self.handleMissingStyleSheetArgs()
-
+        writer = None
         for ext,writer in (
             ('.html','html'),
             ('.htm','html'),
@@ -1326,7 +1328,7 @@ class rstClass:
     def writeBody (self,p):
 
         # remove trailing cruft and split into lines.
-        lines = p.b.rstrip().split('\n') 
+        lines = p.b.rstrip().split('\n')
 
         if self.getOption('code_mode'):
             if not self.getOption('show_options_doc_parts'):
@@ -1424,19 +1426,18 @@ class rstClass:
             result.append(self.formatCodeModeLine(line,i,numberOption))
     #@+node:ekr.20060608094815: *5* handleDocOnlyMode
     def handleDocOnlyMode (self,p,lines):
-
-        '''Handle the preprocessed body text in doc_only mode as follows:
+        '''
+        Handle the preprocessed body text in doc_only mode as follows:
 
         - Blank lines are copied after being cleaned.
         - @ @rst-markup lines get copied as is.
         - All doc parts get copied.
-        - All code parts are ignored.'''
-
-        ignore              = self.getOption('ignore_this_headline')
+        - All code parts are ignored.
+        '''
+        # ignore            = self.getOption('ignore_this_headline')
         showHeadlines       = self.getOption('show_headlines')
         showThisHeadline    = self.getOption('show_this_headline')
         showOrganizers      = self.getOption('show_organizer_nodes')
-
         result = [] ; n = 0
         while n < len(lines):
             s = lines [n] ; n += 1
@@ -1597,7 +1598,7 @@ class rstClass:
 
         h = p.h.strip()
 
-        # Remove any headline command before writing the 
+        # Remove any headline command before writing the
         i = g.skip_id(h,0,chars='@-')
         word = h [:i]
         if word:
@@ -1812,12 +1813,11 @@ class rstClass:
             for line in html:
                 try:
                     parser.feed(line)
-                # bwm: changed to unicode(line)
-                except:
+                except Exception:
                     line = ''.join([ch for ch in line if ord(ch) <= 127])
                     # filter out non-ascii characters.
                     # bwm: not quite sure what's going on here.
-                    parser.feed(line)        
+                    parser.feed(line)
         # g.trace(g.dictToString(self.anchor_map,tag='anchor_map'))
     #@+node:ekr.20050805162550.37: *5* relocate_references
     #@+at Relocate references here if we are only running for one file.
@@ -1836,12 +1836,12 @@ class rstClass:
                 print >> bwm_file
                 print >> bwm_file, "relocate_references(1): Position, attr:"
                 pprint.pprint((p, attr), bwm_file)
-            http_lines = attr [3:]
+            # http_lines = attr [3:]
             parser = link_htmlparserClass(self,p)
             for line in attr [3:]:
                 try:
                     parser.feed(line)
-                except:
+                except Exception:
                     line = ''.join([ch for ch in line if ord(ch) <= 127])
                     parser.feed(line)
             replacements = parser.get_replacements()
@@ -1852,8 +1852,10 @@ class rstClass:
                 print >> bwm_file, "relocate_references(2): Replacements:"
                 pprint.pprint(replacements, bwm_file)
             for line, column, href, href_file, http_node_ref in replacements:
-                if bwm_file: 
-                    print >> bwm_file, "relocate_references(3): line:", line, "Column:", column, "href:", href, "href_file:", href_file, "http_node_ref:", http_node_ref
+                if bwm_file:
+                    print >> bwm_file, ( "relocate_references(3): line:",
+                        line, "Column:", column, "href:", href,
+                        "href_file:", href_file, "http_node_ref:", http_node_ref)
                 marker_parts = href.split("#")
                 if len(marker_parts) == 2:
                     marker = marker_parts [1]
@@ -1861,14 +1863,15 @@ class rstClass:
                     try:
                         attr [line + 2] = attr [line + 2].replace(
                             'href="%s"' % href,'href="%s"' % replacement)
-                    except:
+                    except Exception:
                         g.es("Skipped ", attr[line + 2])
                 else:
-                    filename = marker_parts [0]
+                    # filename = marker_parts [0]
                     try:
                         attr [line + 2] = attr [line + 2].replace(
-                            'href="%s"' % href,'href="%s"' % http_node_ref)
-                    except:
+                            'href="%s"' % href,
+                            'href="%s"' % http_node_ref)
+                    except Exception:
                         g.es("Skipped", attr[line+2])
         # g.trace('after %s\n\n\n',attr)
     #@+node:ekr.20050805162550.35: *5* http_attribute_iter

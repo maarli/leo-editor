@@ -27,7 +27,6 @@ All created sections are alphabetically ordered.
 
 '''
 #@-<< docstring >>
-
 import leo.core.leoGlobals as g
 
 #@+others
@@ -66,13 +65,14 @@ def importCiscoConfig(c):
         # filetypes=[("All files", "*")]
         # )
 
-    name = g.app.gui.runOpenFileDialog (
+    name = g.app.gui.runOpenFileDialog (c,
         title="Import Cisco Configuration File",
         filetypes=[("All files", "*")],
         defaultextension='ini',
     )
 
-    if not name:	return
+    if not name:
+        return
 
     p = current.insertAsNthChild(0)
     c.setHeadString(p,"cisco config: %s" % name)
@@ -103,10 +103,11 @@ def importCiscoConfig(c):
     while i<(lines-1):
         for customLine in customBlocks:
             if (linelist[i].startswith(customLine) or
-                linelist[i].startswith('no %s' % customLine)):
+                linelist[i].startswith('no %s' % customLine)
+            ):
                 #@+<< process custom line >>
                 #@+node:edream.110203113231.674: *3* << process custom line >>
-                if not blocks.has_key(customLine):
+                if customLine not in blocks:
                     blocks[customLine] = []
                     out.append(g.angleBrackets(customLine))
                     # create first-level child
@@ -128,7 +129,7 @@ def importCiscoConfig(c):
                 if space == -1:
                     space = len(linelist[i])
                 key = linelist[i][:space]
-                if not blocks.has_key(key):
+                if key in blocks:
                     blocks[key] = []
                     out.append(g.angleBrackets(key))
                     # create first-level child
@@ -143,7 +144,7 @@ def importCiscoConfig(c):
                     while linelist[i].startswith(' '):
                         value.append(linelist[i])
                         i = i+1
-                except:
+                except Exception:
                     # EOF
                     pass
                 i = i-1 # restore index
@@ -174,8 +175,9 @@ def importCiscoConfig(c):
         # extract the key from the headline. Uhm... :)
         key = child.h.split('<<'
             )[1].split('>>')[0].strip()
-        if blocks.has_key(key):
-            if type(blocks[key][0]) == type(''):
+        if key in blocks:
+            # if type(blocks[key][0]) == type(''):
+            if g.isString(blocks[key][0]):
                 # it's a string, no sub-children, so just print the text
                 c.setBodyString(child,'\n'.join(blocks[key]))
             else:
@@ -191,7 +193,7 @@ def importCiscoConfig(c):
             g.es("Unknown key: %s" % key)
     # p.sortChildren()
     current.expand()
-    c.redraw_now()
+    c.redraw()
     #@-<< complete outline >>
 #@-others
 #@@language python

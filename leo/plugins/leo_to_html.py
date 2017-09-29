@@ -69,7 +69,7 @@ The following commands are the same as above except only the current node is con
 **Properties**
 
 .. note::
-    
+
     As of Mar. 2014 regular Leo @string settings starting with
     `leo_to_html_` are checked first, before the ``.ini`` file.
     E.g. ``@string leo_to_html_flagjustheadlines = No`` has the
@@ -210,9 +210,8 @@ def onCreate (tag, keys):
     controller for the commander issuing the hook.
     """
     c = keys.get('c')
-    if not c: return
-
-    thePluginController = pluginController(c)
+    if c:
+        pluginController(c)
 #@+node:bob.20080107154936.4: *3* createExportMenus
 def createExportMenus (tag,keywords):
 
@@ -226,13 +225,11 @@ def createExportMenus (tag,keywords):
     appear in the menu and where.
 
     """
-
+    # pylint: disable=undefined-variable
+    # c *is* defined.
     c = keywords.get("c")
-
     if c.config.getBool('leo_to_html_no_menus'):
         return
-
-
     for item, cmd in (
         ('Show Node as HTML', 'show-html-node'),
         ('Show Outline as HTML', 'show-html'),
@@ -244,21 +241,19 @@ def createExportMenus (tag,keywords):
             command = lambda c = c, cmd=cmd: c.k.simulateCommand(cmd)
         )
 #@+node:bob.20080107154757: ** class pluginController
-class pluginController:
+class pluginController(object):
     """A per commander plugin controller to create and handle
     minibuffer commands that control the plugins functions.
     """
 
     #@+others
-    #@+node:bob.20080107154757.1: *3* __init__
+    #@+node:bob.20080107154757.1: *3* __init__(pluginController, leo_to_html.py)
     def __init__ (self,c):
-
         """
         Initialze pluginController by registering minibuffer commands.
         """
         self.c = c
         # Warning: hook handlers must use keywords.get('c'), NOT self.c.
-
         for command in (
             'export-html',
             'export-html-bullet',
@@ -281,7 +276,7 @@ class pluginController:
             'show-html-node-head'
         ):
             method = getattr(self, command.replace('-','_'))
-            c.k.registerCommand(command, shortcut=None, func=method)
+            c.k.registerCommand(command, method)
     #@+node:bob.20080107154757.3: *3* export_html
     # EXPORT ALL
 
@@ -427,20 +422,11 @@ class Leo_to_HTML(object):
     #@+node:bob.20080107160008: *4* doItemHeadlineTags
     def doItemHeadlineTags(self, p, level=1):
         """" Recursivley proccess an outline node into an xhtml list."""
-
-        xhtml = self.xhtml
-
         self.doHeadline(p, level)
         self.doBodyElement(p, level)
-
         if p.hasChildren() and self.showSubtree(p):
-
             for item in p.children():
-                self.doItemHeadlineTags(item, level +1)
-
-
-
-
+                self.doItemHeadlineTags(item, level+1)
     #@+node:bob.20080107165629: *4* doItemBulletList
     def doItemBulletList(self, p):
         """" Recursivley proccess an outline node into an xhtml list."""
@@ -479,9 +465,9 @@ class Leo_to_HTML(object):
         if not self.include_body: return
 
         self.xhtml.append(
-            self.openBodyString \
-            + '<pre>' + safe(pp.b) + '</pre>' \
-            + self.closeBodyString
+            self.openBodyString +
+            '<pre>' + safe(pp.b) + '</pre>' +
+            self.closeBodyString
         )
 
     #@+node:bob.20080107175336: *4* showSubtree
@@ -496,7 +482,7 @@ class Leo_to_HTML(object):
 
         s = p.h
         if not self.flagIgnoreFiles or s[:len('@file')] != '@file':
-            return True 
+            return True
     #@+node:bob.20080107154746.9: *3* main
     def main(self, bullet=None, show=False, node=False):
         """Generate the html and write the files.
@@ -525,7 +511,7 @@ class Leo_to_HTML(object):
     #@+node:bob.20080109063110.7: *3* announce
     def announce(self, msg, prefix=None, color=None, silent=None):
 
-        """Print a message if flags allow."""    
+        """Print a message if flags allow."""
 
         if silent is None:
             silent = self.silent
@@ -536,20 +522,20 @@ class Leo_to_HTML(object):
         g.es('%s%s' % (prefix or self.msgPrefix, msg), color=color or self.reportColor)
 
     def announce_start(self, msg='running ...', prefix=None, color=None):
-        self.announce(msg, prefix, color) 
+        self.announce(msg, prefix, color)
 
     def announce_end(self, msg='done', prefix=None, color=None):
         self.announce(msg, prefix, color)
 
     def announce_fail(self, msg='failed', prefix=None, color=None):
-        self.announce(msg, prefix, color= color or self.errorColor, silent=False) 
+        self.announce(msg, prefix, color= color or self.errorColor, silent=False)
     #@+node:bob.20080107154746.11: *3* loadConfig
     def loadConfig(self):
 
         """Load configuration from a .ini file."""
 
         def config(s):
-            
+
             ss = self.c.config.getString("leo_to_html_%s"%s)
             if ss is None:
                 s = configParser.get("Main", s)
@@ -673,7 +659,7 @@ class Leo_to_HTML(object):
         if not g.os_path_exists(tempdir):
             os.mkdir(tempdir)
 
-        filename = g.sanitize_filename(self.myFileName)  
+        filename = g.sanitize_filename(self.myFileName)
         filepath = g.os_path_finalize_join(tempdir, filename + '.html')
 
         self.write(filepath, self.xhtml, basedir='', path='')
@@ -688,7 +674,7 @@ class Leo_to_HTML(object):
             try:
                 subprocess.Popen([self.browser_command, url])
                 return True
-            except:
+            except Exception:
                 msg = 'can\'t open browser using \n    %s\n'%self.browser_command + \
                 'Using default browser instead.'
 
@@ -743,7 +729,7 @@ class Leo_to_HTML(object):
                 ok = False
         finally:
             f.close()
-            
+
         return ok
     #@+node:bob.20080107175154: *3* getXHTMLTemplate
     def getXHTMLTemplate(self):

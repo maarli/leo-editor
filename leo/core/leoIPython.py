@@ -6,124 +6,226 @@
 Support for the --ipython command-line option and the IPython bridge:
 http://leoeditor.com/IPythonBridge.html
 
-This code will run on IPython 1.0 and higher, as well as the IPython 0.x
-versions that define the IPKernelApp class.
+This code will run on IPython 1.0 and higher, as well as the IPython
+0.x versions that define the IPKernelApp class.
 
-This module replaces leo.external.ipy_leo and leo.plugins.internal_ipkernel.
+This module replaces leo.external.ipy_leo and
+leo.plugins.internal_ipkernel.
+
+The ``--ipython`` command-line argument creates g.app.ipk, a
+*singleton* IPython shell, shared by all IPython consoles.
+
+The startup code injects a single object, _leo, into the IPython namespace.
+This object, a LeoNameSpace instance, simplifies dealing with multiple open
+Leo commanders.
 '''
-
-#@@language python
-#@@tabwidth -4
-
 #@+<< imports >>
 #@+node:ekr.20130930062914.15990: ** << imports >> (leoIpython.py)
+from __future__ import print_function
 import sys
 import leo.core.leoGlobals as g
+# Switches...
 import_trace = True and not g.unitTesting
-# pylint: disable=no-name-in-module
+
+def import_fail(s):
+    if import_trace:
+        print('===== leoIpython.py: can not import %s' % s)
+
 try:
-    from IPython.lib.kernel import connect_qtconsole
-    if import_trace: print('ok: IPython.lib.kernel import connect_qtconsole')
+    from ipykernel.connect import connect_qtconsole
 except ImportError:
     connect_qtconsole = None
-    print('leoIPython.py: can not import connect_qtconsole')
+    import_fail('connect_qtconsole')
 try:
-    # First, try the IPython 0.x import.
-    from IPython.zmq.ipkernel import IPKernelApp
-    if import_trace: print('ok: from IPython.zmq.ipkernel import IPKernelApp')
+    # https://github.com/ipython/ipykernel/tree/master/ipykernel
+    # from IPython.core.interactiveshell import ExecutionResult
+    from ipykernel.kernelapp import IPKernelApp
 except ImportError:
-    # Next, try the IPython 1.x import.
-    try:
-        from IPython.kernel.zmq.kernelapp import IPKernelApp
-        if import_trace: print('ok: from IPython.kernel.zmq.ipkernel import IPKernelApp')
-    except ImportError:
-        IPKernelApp = None
-        print('leoIPython.py: can not import IPKernelApp')
+    IPKernelApp = None
+    import_fail('IPKernelApp')
+
 g.app.ipython_inited = IPKernelApp is not None
 #@-<< imports >>
 #@+others
 #@+node:ekr.20130930062914.15993: ** class InternalIPKernel
 class InternalIPKernel(object):
+    '''
+    An interface class between Leo's core and IPython.
+    Called from LeoQtGui.runWithIpythonKernel()
+    '''
     #@+others
-    #@+node:ekr.20130930062914.15994: *3* ctor
-    # Was init_ipkernel
-
+    #@+node:ekr.20130930062914.15994: *3* ileo.__init__
     def __init__(self, backend='qt'):
-        # Start IPython kernel with GUI event loop and pylab support
-        self.ipkernel = self.pylab_kernel(backend)
-        # To create and track active qt consoles
+        '''Ctor for InternalIPKernal class.'''
+        # g.trace('(InternalIPKernel)', g.callers())
+        # Part 1: create the ivars.
         self.consoles = []
-        
-        # This application will also act on the shell user namespace
-        self.namespace = self.ipkernel.shell.user_ns
-        # Keys present at startup so we don't print the entire pylab/numpy
-        # namespace when the user clicks the 'namespace' button
+            # List of Qt consoles.
+        self.kernelApp = None
+            # The IPKernelApp instance, a subclass of
+            # BaseIPythonApplication, InteractiveShellApp, ConnectionFileMixin
+        self.namespace = None
+            # Inited below.
+        self._init_keys = None
+            # Keys present at startup so we don't print the entire pylab/numpy
+            # namespace when the user clicks the 'namespace' button
+        # Part 2: Init the kernel and init the ivars.
+        kernelApp = self.pylab_kernel(backend)
+        assert kernelApp == self.kernelApp
+            # Sets self.kernelApp.
+            # Start IPython kernel with GUI event loop and pylab support
+        self.namespace = kernelApp.shell.user_ns
+            # Import the shell namespace.
         self._init_keys = set(self.namespace.keys())
-
-        # Example: a variable that will be seen by the user in the shell, and
-        # that the GUI modifies (the 'Counter++' button increments it):
-        self.namespace['app_counter'] = 0
-        #self.namespace['ipkernel'] = self.ipkernel  # dbg
-    #@+node:ekr.20130930062914.15992: *3* pylab_kernel
-    def pylab_kernel(self,gui):
-        """Launch and return an IPython kernel with pylab support for the desired gui
-        """
-        trace = True
-        tag = 'leoIPython.py'
-        kernel = IPKernelApp.instance()
-        if kernel:
-            # pylab is really needed, for Qt event loop integration.
-            try:
-                kernel.initialize(['python','--pylab=%s' % (gui)])
-                    #'--log-level=10'
-                if trace: print('%s: kernel: %s' % (tag,kernel))
-            except Exception:
-                print('%s: kernel.initialize failed!' % tag)
-                raise
-        else:
-            print('%s IPKernelApp.instance failed' % (tag))
-        return kernel
-    #@+node:ekr.20130930062914.15995: *3* print_namespace
-    def print_namespace(self,event=None):
+        if g.app.debug:
+            self.namespace['kernelApp'] = kernelApp
+            self.namespace['app_counter'] = 0
+            # Example: a variable that will be seen by the user in the shell, and
+            # that the GUI modifies (the 'Counter++' button increments it)
+    #@+node:ekr.20130930062914.15998: *3* ileo.cleanup_consoles
+    def cleanup_consoles(self, event=None):
+        for console in self.consoles:
+            console.kill()
+    #@+node:ekr.20130930062914.15997: *3* ileo.count
+    def count(self, event=None):
+        self.namespace['app_counter'] += 1
+    #@+node:ekr.20130930062914.15996: *3* ileo.new_qt_console
+    def new_qt_console(self, event=None):
+        '''Start a new qtconsole connected to our kernel.'''
+        trace = False or g.app.debug
+            # For now, always trace when using Python 2.
+        console = None
+        if not self.namespace.get('_leo'):
+            self.namespace['_leo'] = LeoNameSpace()
+        try:
+            if trace:
+                self.put_log('new_qt_console: connecting...')
+                self.put_log(self.kernelApp.connection_file, raw=True)
+            # Fix #213: leo --ipython fails to connect with python3.5 and jupyter
+            # https://github.com/leo-editor/leo-editor/issues/213
+            # The connection file has the form kernel-nnn.json.
+            # Using the defaults lets connect_qtconsole find the .json file.
+            console = connect_qtconsole()
+            if trace: g.trace(console)
+            if console:
+                self.consoles.append(console)
+            else:
+                self.put_warning('new_qt_console: no console!')
+        except OSError as e:
+            # Print statements do not work here.
+            self.put_warning('new_qt_console: failed to connect to console')
+            self.put_warning(e, raw=True)
+        except Exception as e:
+            self.put_warning('new_qt_console: unexpected exception')
+            self.put_warning(e)
+        return console
+    #@+node:ekr.20160331083020.1: *3* ileo.pdb
+    def pdb(self, message=''):
+        """Fall into pdb."""
+        import pdb
+            # Required: we have just defined pdb as a function!
+        pdb = pdb.Pdb(stdout=sys.__stdout__)
+        if message:
+            self.put_stdout(message)
+        pdb.set_trace()
+            # This works, but there are no IPython sources.
+    #@+node:ekr.20130930062914.15995: *3* ileo.print_namespace
+    def print_namespace(self, event=None):
         print("\n***Variables in User namespace***")
-        for k, v in self.namespace.iteritems():
+        for k, v in self.namespace.items():
             if k not in self._init_keys and not k.startswith('_'):
                 print('%s -> %r' % (k, v))
         sys.stdout.flush()
-    #@+node:ekr.20130930062914.15996: *3* new_qt_console
-    def new_qt_console(self,event=None):
-        """start a new qtconsole connected to our kernel"""
-        ipk = g.app.ipk
-        console = None
-        if ipk:
-            if not ipk.namespace.get('_leo'):
-                ipk.namespace['_leo'] = LeoNameSpace()
-            console = connect_qtconsole(
-                self.ipkernel.connection_file,
-                profile=self.ipkernel.profile)
-            if console:
-                self.consoles.append(console)
-        return console
-    #@+node:ekr.20130930062914.15997: *3* count
-    def count(self,event=None):
-        self.namespace['app_counter'] += 1
-
-    #@+node:ekr.20130930062914.15998: *3* cleanup_consoles
-    def cleanup_consoles(self,event=None):
-        for c in self.consoles:
-            c.kill()
+    #@+node:ekr.20160308090432.1: *3* ileo.put_log
+    def put_log(self, s, raw=False):
+        '''Put a message to the IPython kernel log.'''
+        if not raw:
+            s = '[leoIpython.py] %s' % s
+        if self.kernelApp:
+            self.kernelApp.log.info(s)
+        else:
+            self.put_stdout(s)
+    #@+node:ekr.20160331084025.1: *3* ileo.put_stdout
+    def put_stdout(self, s):
+        '''Put s to sys.__stdout__.'''
+        sys.__stdout__.write(s.rstrip()+'\n')
+        sys.__stdout__.flush()
+    #@+node:ekr.20160308101536.1: *3* ileo.put_warning
+    def put_warning(self, s, raw=False):
+        '''
+        Put an warning message to the IPython kernel log.
+        This will be seen, regardless of Leo's --debug option.
+        '''
+        if not raw:
+            s = '[leoIpython.py] %s' % s
+        if self.kernelApp:
+            self.kernelApp.log.warning(s)
+        else:
+            self.put_stdout(s)
+    #@+node:ekr.20130930062914.15992: *3* ileo.pylab_kernel
+    def pylab_kernel(self, gui):
+        '''Launch an IPython kernel with pylab support for the gui.'''
+        trace = False and not g.unitTesting
+            # Increased logging.
+        self.kernelApp = kernelApp = IPKernelApp.instance()
+            # IPKernalApp is a singleton class.
+            # Return the singleton instance, creating it if necessary.
+        if kernelApp:
+            # pylab is needed for Qt event loop integration.
+            args = ['python', '--pylab=%s' % (gui)]
+            if trace or g.app.debug:
+                args.append('--log-level=20')
+                    # Higher is *quieter*
+                # args.append('--debug')
+                # Produces a verbose IPython log.
+                #'--log-level=10'
+                # '--pdb', # User-level debugging
+            try:
+                # self.pdb()
+                kernelApp.initialize(args)
+            except Exception:
+                sys.stdout = sys.__stdout__
+                print('kernelApp.initialize failed!')
+                raise
+        else:
+            g.trace('IPKernelApp.instance failed!')
+        return kernelApp
+    #@+node:ekr.20160329053849.1: *3* ileo.run_script
+    def run_script(self, file_name, script):
+        '''
+        Helper for the ipython-exec command.
+        Run the script in the qt console.
+        '''
+        # https://ipython.org/ipython-doc/dev/interactive/qtconsole.html
+        # https://github.com/ipython/ipython/blob/master/IPython/core/interactiveshell.py
+        shell = self.kernelApp.shell # ZMQInteractiveShell
+        old_show = getattr(shell, '_showtraceback', None)
+        code = compile(script, file_name, 'exec')
+        # g.trace(old_show.__name__)
+        #@+<< define show_traceback >>
+        #@+node:ekr.20160402124159.1: *4* << define show_traceback >>
+        def show_traceback(etype, evalue, stb, shell=shell):
+            '''Monkey-patched replacement for ZMQInteractiveShell._showtraceback.'''
+            # stb is an internal representation of the traceback...
+            # was: print(self.InteractiveTB.stb2text(stb), file=io.stdout)
+            print(shell.InteractiveTB.stb2text(stb), file=sys.stderr)
+            sys.stderr.flush()
+        #@-<< define show_traceback >>
+        shell._showtraceback = show_traceback
+        shell.run_code(code)
+        if old_show:
+            shell._showtraceback = old_show
     #@-others
 #@+node:ekr.20130930062914.16002: ** class LeoNameSpace
 class LeoNameSpace(object):
-    
     '''An interface class passed to IPython that provides easy
     access to "g" and all commanders.
-    
+
     A convenience property, "c" provides access to the first
     commander in g.app.windowList.
     '''
 
-    def __init__ (self):
+    def __init__(self):
         '''LeoNameSpace ctor.'''
         self.commander = None
             # The commander returned by the c property.
@@ -131,7 +233,6 @@ class LeoNameSpace(object):
             # The list of commanders returned by the commanders property.
         self.g = g
         self.update()
-
     #@+others
     #@+node:ekr.20130930062914.16006: *3* LeoNS.c property
     def __get_c(self):
@@ -144,7 +245,7 @@ class LeoNameSpace(object):
         else:
             return None
 
-    def __set_c(self,c):
+    def __set_c(self, c):
         '''Designate the commander to be returned by the getter.'''
         self.update()
         if c in self.commanders_list:
@@ -155,7 +256,7 @@ class LeoNameSpace(object):
 
     c = property(
         __get_c, __set_c,
-        doc = "LeoNameSpace c property")
+        doc="LeoNameSpace c property")
     #@+node:edward.20130930125732.11822: *3* LeoNS.commanders property
     def __get_commanders(self):
         '''Return the designated commander, or the only open commander.'''
@@ -164,9 +265,9 @@ class LeoNameSpace(object):
 
     commanders = property(
         __get_commanders, None,
-        doc = "LeoNameSpace commanders property (read-only)")
+        doc="LeoNameSpace commanders property (read-only)")
     #@+node:ekr.20130930062914.16009: *3* LeoNS.find_c
-    def find_c(self,path):
+    def find_c(self, path):
         '''Return the commander associated with path, or None.'''
         g = self.g
         self.update()
@@ -178,10 +279,12 @@ class LeoNameSpace(object):
             if fn == path or short_fn == short_path:
                 return c
     #@+node:ekr.20130930062914.16003: *3* LeoNS.update
-    def update (self):
+    def update(self):
         '''Update the list of available commanders.'''
         self.commanders_list = [frame.c for frame in g.app.windowList]
     #@-others
-    
 #@-others
+#@@language python
+#@@tabwidth -4
+#@@pagewidth 70
 #@-leo

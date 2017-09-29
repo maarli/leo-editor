@@ -1,10 +1,8 @@
 #@+leo-ver=5-thin
 #@+node:ville.20091010232339.6117: * @file ../external/lproto.py
-#@@language python
-
 #@+<< docstring >>
 #@+node:ville.20091010205847.1364: ** << docstring >>
-""" lproto - simple local socket protocol dispatcher (reactor) for PyQt 
+""" lproto - simple local socket protocol dispatcher (reactor) for PyQt
 
 Author: Ville M. Vainio <vivainio@gmail.com>
 
@@ -19,7 +17,7 @@ if isQt5:
     from PyQt5 import QtNetwork
 else:
     from PyQt4 import QtNetwork
-import os   
+import os
 import socket
 import struct
 
@@ -27,9 +25,8 @@ import struct
 
 
 #@-<< imports >>
-
+#@@killbeautify
 # EKR: use this by default.
-
 if hasattr(socket,'AF_UNIX'):
     standard_leo_socket_name = os.path.expanduser('~/.leo/leoserv_sockname')
 else:
@@ -39,7 +36,7 @@ else:
 #@+node:tbrown.20130319124904.18711: ** lprint
 def lprint(*args):
     """lprint "Log Print" - print args
-    
+
     To replace all the print() statements so the can be
     easily dis/enabled
 
@@ -48,7 +45,7 @@ def lprint(*args):
     """
 
     # print(args)
-    
+
     return
 #@+node:ville.20091010205847.1363: ** sending
 def mk_send_bytes(msg):
@@ -57,7 +54,7 @@ def mk_send_bytes(msg):
     return lendesc + msg
 
 #@+node:ville.20091010205847.1362: ** class LProtoBuf
-class LProtoBuf:
+class LProtoBuf(object):
     def __init__(self):
 
         self.plen = -1
@@ -98,7 +95,7 @@ class LProtoBuf:
 
         lprint("in buf",self.buf)
 #@+node:ville.20091009234538.1374: ** class LProtoServer
-class LProtoServer:
+class LProtoServer(object):
 
     #@+others
     #@+node:ekr.20111012070545.7254: *3* __init__ (LProtoServer)
@@ -175,7 +172,7 @@ if 0:
             lprint("client connected")
         #@-others
 #@+node:ville.20091010233144.10051: ** class LProtoClient
-class LProtoClient:
+class LProtoClient(object):
 
     #@+others
     #@+node:ekr.20111012070545.7210: *3* ctor (LProtoClient)
@@ -200,8 +197,8 @@ class LProtoClient:
 
         if hasattr(socket,'AF_UNIX'):
             try:
-                # pylint: disable=E1101
-                # E1101:LProtoClient.connect: Module 'socket' has no 'AF_UNIX' member
+                # pylint: disable=no-member
+                # Module 'socket' has no 'AF_UNIX' member
                 self.socket = socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
                 self.socket.connect(fname)
                 return True
@@ -231,4 +228,7 @@ class LProtoClient:
 
 
 #@-others
+#@@language python
+#@@tabwidth -4
+#@@pagewidth 70
 #@-leo

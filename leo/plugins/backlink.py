@@ -18,7 +18,7 @@ prepends (negative values) or appends (positive values) the
 required number of parent names to the other nodes name.
 
 So for example, you may see links listed as::
-    
+
     <- taxa
     <- taxa
     <- taxa
@@ -35,9 +35,9 @@ where the extra information is the name of the linked node's parent.
 #@+<< notes >>
 #@+node:ekr.20140920145803.17983: ** << notes >>
 # Notes
-# 
+#
 # Backlink will store all its stuff in v.unknownAttributes['_bklnk']
-# 
+#
 # When nodes are copied and pasted unknownAttributes are duplicated.
 # during load, backlink will create a dict. of vnode ids.  Duplicates
 # will be split, so that a node linking to a node which is copied and
@@ -46,13 +46,13 @@ where the extra information is the name of the linked node's parent.
 # vnode originally held the id
 #
 # TODO
-# 
+#
 # - provide API
-# 
+#
 # - mark Src / Dst - vnodes more robust that positions?
-# 
+#
 # - store attributes for link start/whole-link/end (name, weight)
-# 
+#
 # - restore dropped links (cut / paste or undo)?
 
 # UI class signatures, main class signature
@@ -76,6 +76,10 @@ where the extra information is the name of the linked node's parent.
 
 # **Important**: this plugin is gui-independent.
 import leo.core.leoGlobals as g
+# try:
+    # from leo.core.leoQt import QtCore
+# except ImportError:
+    # pass
 Tk = None
 Qt = None
 #@+others
@@ -95,10 +99,14 @@ class backlinkController(object):
             self.ui = backlinkTkUI(self)
         elif Qt:
             self.ui = backlinkQtUI(self)
+        else:
+            # Fix part of #509. Ignore missing attributes.
+            self.ui = g.NullObject()
         g.registerHandler('select3', self.updateTab)
         g.registerHandler('open2', self.loadLinks)
         # already missed initial 'open2' because of after-create-leo-frame, so
         self.loadLinksInt()
+        self.updateTabInt()
     #@+node:tbrown.20091005145931.5227: *3* fixIDs
     def fixIDs(self, c):
 
@@ -108,12 +116,12 @@ class backlinkController(object):
             # collect old -> new ID mapping
             if (hasattr(v, 'unknownAttributes') and
                 '_bklnk' in v.u and
-                'id' in v.u['_bklnk']):
+                'id' in v.u['_bklnk']
+            ):
                 update[v.u['_bklnk']['id']] = v.gnx
 
         for v in c.all_unique_nodes():
-            if (hasattr(v, 'unknownAttributes') and
-                '_bklnk' in v.u):
+            if (hasattr(v, 'unknownAttributes') and '_bklnk' in v.u):
 
                 if 'id' in v.u['_bklnk']:
                     # remove old id
@@ -135,6 +143,10 @@ class backlinkController(object):
         links = on.unknownAttributes['_bklnk']['links']
 
         for n,link in enumerate(links):
+
+            on.setDirty()
+            self.c.setChanged(True)
+
             if type_ == link[0] and to == link[1]:
                 del links[n]
                 v = self.vnode[to]
@@ -154,7 +166,7 @@ class backlinkController(object):
             self.showMessage("Error: no such link")
 
         self.updateTabInt()
-        
+
         # gcc = getattr(self.c, 'graphcanvasController')
         try:
             gcc = self.c.graphcanvasController
@@ -170,15 +182,47 @@ class backlinkController(object):
             self.showMessage('Click a link to DELETE it', color='red')
         else:
             self.showMessage('Click a link to follow it')
+    #@+node:tbnorth.20170616105931.1: *3* handleURL
+    def handleURL(self, url):
+        """handleUrl - user clicked an URL / UNL link
+
+        :param str url: URL for link
+        """
+        g.es(url)
+        # UNL detection copied from g.handleUrl()
+        if (
+            url.lower().startswith('unl:' + '//') or
+            url.lower().startswith('file://') and url.find('-->') > -1 or
+            url.startswith('#')
+        ):
+            our_unl = 'unl://'+self.c.p.get_UNL(with_index=False)
+            # don't use .get_UNL(with_proto=True), that
+            # unecessarily does ' ' -> %20 conversion
+            new_c = g.handleUnl(url, self.c)
+            if new_c and hasattr(new_c, 'backlinkController'):
+                unl = url.replace('%20', ' ').split('#', 1)[-1].split('-->')
+                found, _, new_p = g.recursiveUNLFind(unl, new_c)
+                if not found:
+                    g.es("No perfect match, not creating backlink")
+                    return
+                new_c.backlinkController.initBacklink(new_p.v)
+                if our_unl not in [i.rsplit('##', 1)[0] for i in new_p.v.u['_bklnk']['urls']]:
+                    new_p.v.u['_bklnk']['urls'].append("%s##%s" % (our_unl, self.c.p.h))
+                    new_c.backlinkController.updateTabInt()
+                    new_p.setDirty()
+                    new_c.setChanged(True)
+                    g.es("NOTE: created back link automatically")
+        else:
+            g.handleUrl(url, c=self.c)
     #@+node:ekr.20090616105756.3946: *3* initBacklink
     def initBacklink(self, v):
         """set up a vnode to support links"""
 
         if '_bklnk' not in v.u:
             v.u['_bklnk'] = {}
-
-        if 'links' not in v.u['_bklnk']:
-            v.u['_bklnk'].update({'links':[]})
+        for entry in 'links', 'urls':
+            if entry not in v.u['_bklnk']:
+                v.u['_bklnk'][entry] = []
 
         self.vnode[v.gnx] = v
     #@+node:ekr.20090616105756.3947: *3* initIvars
@@ -189,12 +233,14 @@ class backlinkController(object):
         self.linkSource = None
         self.linkMark = None
         self.vnode = {}
-        #X self.positions = {}
         self.messageUsed = False
     #@+node:ekr.20090616105756.3948: *3* linkAction
     def linkAction(self, dir_, newChild=False):
         """link to/from current position from/to mark node"""
-        if not self.linkMark or not self.c.positionExists(self.linkMark):
+
+        if dir_ == 'url':
+            self.linkUrl()
+        elif not self.linkMark or not self.c.positionExists(self.linkMark):
             self.showMessage('Link mark not specified or no longer valid', color='red')
             return
 
@@ -204,7 +250,7 @@ class backlinkController(object):
                 p = self.linkMark.insertAsLastChild()
                 p.h = self.c.p.h
             self.link(self.c.p, p)
-        else:
+        elif dir_ == 'to':
             p = self.linkMark
             if newChild:
                 p = self.linkMark.insertAsLastChild()
@@ -218,6 +264,9 @@ class backlinkController(object):
         """make a link"""
 
         self.vlink(from_.v, to.v, type_=type_)
+        from_.setDirty()
+        to.setDirty()
+        self.c.setChanged(True)
 
     #@+node:ekr.20090616105756.3950: *3* vlink
     def vlink(self, v0, v1, type_='directed'):
@@ -248,6 +297,15 @@ class backlinkController(object):
     #@+node:ekr.20090616105756.3951: *3* linkClicked
     def linkClicked(self, selected):
         """UI informs us that link number 'selected' (zero based) was clicked"""
+
+        if selected >= len(self.dests):  # URL link
+            url = self.c.p.v.u['_bklnk']['urls'][selected-len(self.dests)]
+            if self.deleteMode:
+                self.c.p.v.u['_bklnk']['urls'].remove(url)
+                self.updateTabInt()
+            else:
+                self.handleURL(url.rsplit('##', 1)[0])
+            return
 
         if not self.deleteMode:
             assert self.c.positionExists(self.dests[selected][1])
@@ -315,6 +373,29 @@ class backlinkController(object):
         self.link(source, self.c.p, type_='undirected')
 
         self.updateTabInt()
+    #@+node:tbnorth.20170616103256.1: *3* linkUrl
+    def linkUrl(self):
+        """linkUrl - link from current position to an URL / UNL"""
+
+        c = self.c
+        url = g.app.gui.runAskOkCancelStringDialog(
+            c, "Link to URL/UNL",
+            "Enter URL / UNL to link to from this node",
+            default=g.app.gui.getTextFromClipboard()
+        )
+        if url is None or not url.strip():
+            return
+        if '://' not in url:
+            url = 'unl://' + url
+            g.es("Assuming unl:// url, use file:// explicitly for files")
+        self.initBacklink(c.p.v)
+        if url in [i.rsplit('##', 1)[0] for i in c.p.v.u['_bklnk']['urls']]:
+            g.es("Already linked from this node")
+            return
+        c.p.v.u['_bklnk']['urls'].append(url)
+        c.p.setDirty()
+        c.setChanged(True)
+
     #@+node:ekr.20090616105756.3957: *3* loadLinks
     def loadLinks(self, tag, keywords):
         """load links after file opened"""
@@ -361,8 +442,10 @@ class backlinkController(object):
                 other = self.vnode[link[1]]
                 if '_bklnk' not in other.u or 'links' not in other.u['_bklnk']:
                     self.initBacklink(other)
-                if not [i for i in other.u['_bklnk']['links']
-                    if i[1] == vnode]:
+                if not [
+                    i for i in other.u['_bklnk']['links']
+                        if i[1] == vnode
+                ]:
                     # we are not in the other's list
                     direc = {'U':'U', 'S':'D', 'D':'S'}[link[0]]
                     other.u['_bklnk']['links'].append((direc, vnode))
@@ -387,6 +470,36 @@ class backlinkController(object):
         """Mark current position as 'source' (called by UI)"""
         self.linkSource = self.c.p.copy()
         self.showMessage('Source marked')
+    #@+node:tbnorth.20170616135915.1: *3* nextLink
+    def nextLink(self):
+        """nextLink - jump to next node with a link
+        """
+
+        c = self.c
+        hits = [[]]  # hits/including before the current node
+
+        current = c.p.v
+
+        for v in c.all_unique_nodes():
+
+            if '_bklnk' in v.u and (
+              v.u['_bklnk']['links'] or v.u['_bklnk'].get('urls')):
+                hits[-1].append(v)
+            # forgo this optimization in favor of total count
+            # if len(hits) > 1 and hits[-1]):
+            #     break  # got one after the current node
+            if v == current:
+                hits.append([])  # hits after the current node
+
+        total = sum(map(len, hits))
+        g.es("%d nodes with links" % total)
+        if hits[1]:
+            c.selectPosition(c.vnode2position(hits[1][0]))
+            return
+        if total == 0:
+            return
+        g.es("Search wrapped")
+        c.selectPosition(c.vnode2position(hits[0][0]))
     #@+node:ekr.20090616105756.3962: *3* positionExistsSomewhere
     def positionExistsSomewhere(self,p,root=None):
         """A local copy of c.positionExists so that when the
@@ -490,14 +603,14 @@ class backlinkController(object):
                 smenu = Tk.Menu(menu,tearoff=0,takefocus=1)
                 for i in dests:
                     def goThere(where = i[1]): c.selectPosition(where)
-                    c.add_command(menu,label={'S':'->','D':'<-','U':'--'}[i[0]]
-                        + i[1].h,
+                    c.add_command(menu,
+                        label={'S':'->','D':'<-','U':'--'}[i[0]] + i[1].h,
                         underline=0,command=goThere)
                     def delLink(on=v,
                         to=i[1].v.unknownAttributes['_bklnk']['id'],
                         type_=i[0]): self.deleteLink(on,to,type_)
-                    c.add_command(smenu,label={'S':'->','D':'<-','U':'--'}[i[0]]
-                        + i[1].h,
+                    c.add_command(smenu,
+                        label={'S':'->','D':'<-','U':'--'}[i[0]] + i[1].h,
                         underline=0,command=delLink)
                 menu.add_cascade(label='Delete link', menu=smenu,underline=1)
                 menu.add_separator()
@@ -522,10 +635,8 @@ class backlinkController(object):
 
         if self.messageUsed and optional:
             return
-
         if not self.messageUsed and not optional:
             self.messageUsed = True
-
         self.ui.showMessage(msg, color=color)
     #@+node:ekr.20090616105756.3966: *3* swap
     def swap(self):
@@ -548,13 +659,15 @@ class backlinkController(object):
         c = self.c
         p = c.p
         v = p.v
-
         self.messageUsed = False
-
         self.ui.enableDelete(False)
         self.deleteMode = False
         self.showMessage('', optional=True)
-
+        try:
+            if v.u['_bklnk']['urls']:
+                self.ui.enableDelete(True)
+        except KeyError:
+            pass
         texts = []
         if (v.u and '_bklnk' in v.u and 'links' in v.u['_bklnk']):
             i = 0
@@ -575,8 +688,10 @@ class backlinkController(object):
                 self.ui.enableDelete(True)
                 self.showMessage('Click a link to follow it', optional=True)
                 for i in dests:
-                    def goThere(where = i[1]): c.selectPosition(where)
                     
+                    def goThere(where = i[1]):
+                        c.selectPosition(where)
+
                     name = i[1].h
                     # add self.name_levels worth of ancestor names on left or right
                     nl = self.name_levels
@@ -592,11 +707,24 @@ class backlinkController(object):
                         else:
                             nl -= 1
                             name += ' < ' + nl_txt
-                        
                     txt = {'S':'->','D':'<-','U':'--'}[i[0]] + ' ' + name
                     texts.append(txt)
+            urls = []
+            for url in v.u['_bklnk'].get('urls', []):
+                url = url.rsplit('##', 1)
+                if len(url) > 1:
+                    url, description = url
+                else:
+                    url, description = url[0], ''
+                if description.strip():
+                    description = "%s %s" % (description, url)
+                else:
+                    description = url
+                url = url.replace('-->', ' > ')
+                urls.append((description, url))
+            texts.extend(urls)
+        self.ui.loadList(texts)
 
-        self.ui.loadList(texts) 
     #@+node:ekr.20090616105756.3969: *3* vnodePosition
     def vnodePosition(self,v):
         """Return a position for vnode v, if there is one"""
@@ -605,7 +733,7 @@ class backlinkController(object):
 #@+node:ekr.20090616105756.3939: ** class backlinkQtUI
 if g.app.gui.guiName() == "qt":
 
-    from leo.core.leoQt import Qt,QtCore,QtGui,QtWidgets,uic
+    from leo.core.leoQt import Qt,QtGui,QtWidgets,uic
 
     class backlinkQtUI(QtWidgets.QWidget):
         #@+others
@@ -616,37 +744,21 @@ if g.app.gui.guiName() == "qt":
             QtWidgets.QWidget.__init__(self)
             uiPath = g.os_path_join(g.app.leoDir, 'plugins', 'Backlink.ui')
             form_class, base_class = uic.loadUiType(uiPath)
-            self.owner.c.frame.log.createTab('Links', widget = self) 
+            self.owner.c.frame.log.createTab('Links', widget = self)
             self.UI = form_class()
             self.UI.setupUi(self)
             u = self.UI
             o = self.owner
-            if 1: # Compatible with PyQt5
-                u.markBtn.clicked.connect(o.mark)
-                u.swapBtn.clicked.connect(o.swap)
-                u.linkBtn.clicked.connect(self.linkClicked)
-                u.rescanBtn.clicked.connect(o.loadLinksInt)
-                u.dirLeftBtn.clicked.connect(self.dirClicked)
-                u.dirRightBtn.clicked.connect( self.dirClicked)
-                u.linkList.itemClicked.connect(self.listClicked)
-                u.deleteBtn.stateChanged.connect(o.deleteSet)
-            else: # old code 
-                self.connect(u.markBtn,
-                    QtCore.SIGNAL("clicked()"), o.mark)
-                self.connect(u.swapBtn,
-                    QtCore.SIGNAL("clicked()"), o.swap)
-                self.connect(u.linkBtn,
-                    QtCore.SIGNAL("clicked()"), self.linkClicked)
-                self.connect(u.rescanBtn,
-                    QtCore.SIGNAL("clicked()"), o.loadLinksInt)
-                self.connect(u.dirLeftBtn, 
-                    QtCore.SIGNAL("clicked()"), self.dirClicked)
-                self.connect(u.dirRightBtn, 
-                    QtCore.SIGNAL("clicked()"), self.dirClicked)
-                self.connect(u.linkList,
-                    QtCore.SIGNAL("itemClicked(QListWidgetItem*)"), self.listClicked)
-                self.connect(u.deleteBtn,
-                    QtCore.SIGNAL("stateChanged(int)"), o.deleteSet)
+            # Compatible with PyQt5
+            u.markBtn.clicked.connect(o.mark)
+            u.swapBtn.clicked.connect(o.swap)
+            u.linkBtn.clicked.connect(self.linkClicked)
+            u.rescanBtn.clicked.connect(o.loadLinksInt)
+            u.dirLeftBtn.clicked.connect(self.dirClicked)
+            u.dirRightBtn.clicked.connect( self.dirClicked)
+            u.linkList.itemClicked.connect(self.listClicked)
+            u.deleteBtn.stateChanged.connect(o.deleteSet)
+            u.nextBtn.clicked.connect(o.nextLink)
         #@+node:ekr.20140920145803.17988: *3* dirClicked
         def dirClicked(self):
 
@@ -666,15 +778,26 @@ if g.app.gui.guiName() == "qt":
             if self.UI.whatSel.currentText() == "mark, undirected":
                 self.owner.linkAction('undirected')
                 return
+
+            if self.UI.whatSel.currentText() == "URL / UNL":
+                self.owner.linkAction('url')
+                return
+
             newChild = self.UI.whatSel.currentText() == "new child of mark"
             if self.UI.dirLeftBtn.text() == "from":
                 self.owner.linkAction('from', newChild=newChild)
             else:
                 self.owner.linkAction('to', newChild=newChild)
         #@+node:ekr.20140920145803.17991: *3* loadList
-        def loadList(self, lst): 
+        def loadList(self, lst):
             self.UI.linkList.clear()
-            self.UI.linkList.addItems(lst)
+            for item in lst:
+                if isinstance(item, (tuple, list)):
+                    list_item = QtWidgets.QListWidgetItem(item[0])
+                    list_item.setToolTip(item[1])
+                    self.UI.linkList.addItem(list_item)
+                else:
+                    self.UI.linkList.addItem(item)
         #@+node:ekr.20140920145803.17992: *3* showMessage
         def showMessage(self, msg, color='black'):
             '''Show the message in the label area.'''
@@ -823,7 +946,7 @@ def init ():
     if ok:
         g.registerHandler('after-create-leo-frame',onCreate)
         # can't use before-create-leo-frame because Qt dock's not ready
-        g.plugin_signon(__name__) 
+        g.plugin_signon(__name__)
     return ok
 #@+node:ekr.20090616105756.3941: *3* onCreate
 def onCreate (tag, keys):

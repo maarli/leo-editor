@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Created by Leo (http://leoeditor.com/leo_toc.html) -->
-<?xml-stylesheet ekr_test?>
-<leo_file xmlns:leo="http://www.leo-editor.org/2011/leo" >
+<!-- Created by Leo: http://leoeditor.com/leo_toc.html -->
+<leo_file xmlns:leo="http://leoeditor.com/namespaces/leo-python-editor/1.1" >
 <leo_header file_format="2" tnodes="0" max_tnode_index="0" clone_windows="0"/>
 <globals body_outline_ratio="0.5" body_secondary_ratio="0.5">
 	<global_window_position top="50" left="50" height="500" width="700"/>
@@ -27,20 +26,28 @@
 <v t="ekr.20131019184243.16687"><vh>Moving outline nodes</vh></v>
 <v t="ekr.20131019184243.16688"><vh>Moving the cursor</vh></v>
 </v>
+<v t="ekr.20160401160027.1"><vh>Executing minibuffer commands</vh></v>
 <v t="ekr.20131019184243.16689"><vh>Frequently used commands</vh></v>
 <v t="ekr.20131019184243.16690"><vh>Leo directives</vh></v>
 <v t="ekr.20131019184243.16691"><vh>Settings</vh></v>
 <v t="ekr.20131031101712.19298"><vh>Node types</vh></v>
 <v t="ekr.20131019184243.16692"><vh>Notable Plugins</vh></v>
-<v t="ekr.20131019184243.16693"><vh>External files (@&lt;file&gt; nodes)</vh></v>
+<v t="ekr.20131019184243.16693"><vh>External files (@&lt;file&gt; nodes)</vh>
+<v t="ekr.20160410111255.1"><vh>Path expressions</vh></v>
+<v t="ekr.20160410111226.1"><vh>Sections</vh></v>
+</v>
 <v t="ekr.20131019184243.16694"><vh>Scripting</vh>
 <v t="ekr.20131019184243.16695"><vh>Pre-defined symbols</vh></v>
-<v t="ekr.20131019184243.16696"><vh>Generators</vh></v>
+<v t="ekr.20170315015836.1"><vh>LeoApp class</vh></v>
 <v t="ekr.20131019184243.16697"><vh>Commands class</vh></v>
-<v t="ekr.20131019184243.16698"><vh>vnode class</vh></v>
-<v t="ekr.20131019184243.16699"><vh>position class</vh></v>
-<v t="ekr.20131019184243.16700"><vh>leo.core.leoGlobals module</vh></v>
+<v t="ekr.20131019184243.16698"><vh>VNode class</vh></v>
+<v t="ekr.20131019184243.16699"><vh>Position class</vh></v>
+<v t="ekr.20131019184243.16700"><vh>The leoGlobals module</vh></v>
+<v t="ekr.20170311121717.1"><vh>Test driven development</vh></v>
+<v t="ekr.20170403190104.1"><vh>Performance gotchas</vh></v>
+<v t="ekr.20170403190120.1"><vh>About names</vh></v>
 </v>
+<v t="ekr.20170311122518.1"><vh>Command line options</vh></v>
 </v>
 <v t="ekr.20131030071311.18723"><vh>The rst3 tutorial</vh>
 <v t="ekr.20131030071311.18732"><vh>@rst ~/myDocument.html</vh>
@@ -57,9 +64,17 @@
 </v>
 <v t="ekr.20131102044158.16563"><vh>~/myDocument.html.txt</vh></v>
 </v>
+<v t="ekr.20160315141648.1"><vh>Code academy</vh>
+<v t="ekr.20160315141648.3"><vh>CA: uA's</vh></v>
+<v t="ekr.20160315141648.4"><vh>CA: icons</vh></v>
+<v t="ekr.20160315141648.5"><vh>CA: using git</vh></v>
+<v t="ekr.20160315141648.6"><vh>CA: finding nodes with c.cloneFindByPredicate</vh></v>
+</v>
+<v t="ekr.20131019184243.16694"></v>
 </vnodes>
 <tnodes>
-<t tx="ekr.20131019184243.16683"></t>
+<t tx="ekr.20131019184243.16683">@wrap
+</t>
 <t tx="ekr.20131019184243.16685"></t>
 <t tx="ekr.20131019184243.16686">When focus is in the outline pane::
 
@@ -238,38 +253,71 @@ This overrides the following default binding in leoSettings.leo::
 - valuespace.py: Creates an outline-oriented spreadsheet.
 - viewrendered.py: Creates a rendering pane. Automatically loaded by Leo's help commands.
 </t>
-<t tx="ekr.20131019184243.16693">\@&lt;file&gt; nodes create external files::
+<t tx="ekr.20131019184243.16693">@&lt;file&gt; nodes create external files:
 
-    @asis &lt;filename&gt;    
-    @auto &lt;filename&gt;    
-    @edit &lt;filename&gt;
-    @file &lt;filename&gt;
-    @nosent &lt;filename&gt;  
-    @shadow &lt;filename&gt;
+    @asis &lt;filename&gt;        write only, no sentinels, exact line endings
+    @auto &lt;filename&gt;        recommended
+    @clean &lt;filename&gt;       recommended
+    @edit &lt;filename&gt;        @edit node contains entire file
+    @file &lt;filename&gt;        recommended
+    @nosent &lt;filename&gt;      write only, no sentinels
+
+This table summarizes the differences between @&lt;file&gt; nodes:
+
+                             Sections &amp;   File data in
+    @&lt;file&gt; kind  Sentinels?  @others?    .leo file?    Notes             
+    ------------  ---------- -----------  ------------  -----
+    @asis            no         no           yes
+    @auto            no         yes          no         1, 2
+    @auto-xx         no         yes          no         1, 2
+    @clean           no         yes          yes     
+    @edit            no         no           no    
+    @file            yes        yes          no
+    @nosent          no         yes          yes
     
-For full details, see Leo's Directives reference: http://leoeditor.com/directives.html
+**Note 1**: @auto nodes read files using language-specific importers.
+By default, the file's extension determines the importer:
+
+    Extensions                  Importer
+    ----------                  --------
+    .c, .cc, .c++, .cpp,.cxx    C
+    .cs', .c#'                  C Sharp
+    .el                         Elisp
+    .h, .h++                    C
+    .html, .htm                 HTML
+    .ini                        Config file
+    .ipynb                      Jupyter notebook
+    .java                       Java
+    .js                         JavaScript
+    .md                         Markdown
+    .org                        Org Mode
+    .otl                        Vim outline
+    .pas                        Pascal
+    .php                        PHP
+    .py, .pyi, .pyw             Python
+    .rest, .rst                 reStructuredText
+    .ts                         TypeScript
+    .xml                        XML
     
-**Section names** have the form::
+**Note 2**: You can also specify importers *explicitly* as follows:
 
-    &lt;&lt; any text, except double closing angle brackets &gt;&gt;
+    @auto-xxx           Importer
+    ---------           --------
+    @auto-ctext         ctext
+    @auto-markdown      markdown
+    @auto-md            markdown
+    @auto-org           org-mode
+    @auto-org-mode      org-mode
+    @auto-otl           vimoutline
+    @auto-vim-outline   vimoutline
+    @auto-rst           reStructuredText
     
-**Section-definition nodes** have headlines starting with a section name.
+For full details, see Leo's Directives reference:
+http://leoeditor.com/directives.html
+    </t>
+<t tx="ekr.20131019184243.16694">@wrap
 
-Leo performs **expansions** for all @&lt;file&gt; nodes except @asis.
-
-Expansion of @all:
-
-- Leo replaces @all by the *unexpanded* body text of *all* nodes.
-
-Expansion of section names and @others:
-
-- Leo replaces section names in body text by the *expanded*
-  text of the corresponding section definition node.
-  
-- Leo replaces @others with the *expanded* text of all nodes
-  that *aren't* section-definition nodes.
-</t>
-<t tx="ekr.20131019184243.16694">This section lists the ivars, properties, functions and methods most
+This section lists the ivars, properties, functions and methods most
 commonly used in Leo scripts.
 
 **Very important**: use Alt-1 (toggle-autocompleter) and Alt-2
@@ -287,26 +335,74 @@ http://blog.suspended-chord.info/2014/01/28/intro-to-leo-scripting/</t>
 
     self: The instance of unittest.TestCase
 </t>
-<t tx="ekr.20131019184243.16696">::
+<t tx="ekr.20131019184243.16697">Ivars:
+
+    c.config                c's configuration object
+    c.frame                 c's outer frame, a leoFrame instance.
+    c.undoer                c's undo handler.
+    c.user_dict             A temporary dict for use of scripts and plugins.
+    
+SubCommanders:
+
+    # in leo/core...
+    c.atFileCommands
+    c.chapterController
+    c.fileCommands
+    c.findCommands
+    c.importCommands
+    c.keyHandler = c.k
+    c.persistenceController
+    c.printingController
+    c.rstCommands
+    c.shadowController
+    c.tangleCommands
+    c.testManager
+    c.vimCommands
+
+    # In leo/commands...
+    c.abbrevCommands
+    c.controlCommands
+    c.convertCommands
+    c.debugCommands
+    c.editCommands
+    c.editFileCommands
+    c.gotoCommands
+    c.helpCommands
+    c.keyHandlerCommands
+    c.killBufferCommands
+    c.rectangleCommands
+    c.spellCommands
+    
+For example, c.k is an instance of the LeoKeys class in leo/core/leoKeys.py.
+    
+Generators:
 
     c.all_positions()
     c.all_unique_positions()
-    p.children()
-    p.parents()
-    p.self_and_parents()
-    p.self_and_siblings()
-    p.following_siblings()
-    p.subtree()
-    p.self_and_subtree()
-</t>
-<t tx="ekr.20131019184243.16697">::
+    
+New in Leo 5.5: All generators yield distinct positions.
+    
+Most useful methods:
 
-    c.frame         c's outer frame, a leoFrame instance.
-    c.user_dict     a temporary dict for use of scripts and plugins.
-    c.redraw()
+    c.isChanged()
+    c.deletePositionsInList(aList, callback=None)
+                            # safely deletes all the positions in aList.
     c.positionExists(p)
+    c.redraw(p=None)        # Redraw the screen. Select p if given.
+    c.redraw_later()        # Ensure that Leo redraws the outline.
+    c.save()                # Save the present outline.
+    c.selectPosition()      # Select the position, without redrawing the screen.
+    
+Suppressing screen flash when redrawing the outline:
 
-Here is a partial list of the **official ivars** of any leoFrame f::
+    try:
+        c.disable_redraw()
+        &lt;&lt; Code that might otherwise update the outline &gt;&gt;
+    finally:
+        c.enable_redraw()
+        c.redraw()
+    
+**Official ivars** of any leoFrame f:
 
     f.c                     is the frame’s commander.
     f.body                  is a leoBody instance.
@@ -318,23 +414,36 @@ Here is a partial list of the **official ivars** of any leoFrame f::
     
 Use autocompletion to explore these objects!
 </t>
-<t tx="ekr.20131019184243.16698">::
+<t tx="ekr.20131019184243.16698">Ivars:
 
-    v.b: v's body text.
-    v.h: v's headline text.
-    v.u: v.unknownAttributes, a persistent Python dictionary.
+    v.b:    v's body text.
+    v.gnx:  v's gnx.
+    v.h:    v's headline text.
+    v.u:    v.unknownAttributes, a persistent Python dictionary.
     
 v.u (uA's or unknownAttributes or userAttributes) allow plugins or scripts
-to associate persistant data with vnodes. For details see:
+to associate persistent data with vnodes. For details see:
 http://leoeditor.com/customizing.html#adding-extensible-attributes-to-nodes-and-leo-files
 </t>
-<t tx="ekr.20131019184243.16699">**Properties**::
+<t tx="ekr.20131019184243.16699">**Properties**:
 
-    p.b: same as p.v.b.
-    p.h: same as p.v.h.
+    p.b: same as p.v.b. *Warning*: p.b = s is expensive.
+    p.h: same as p.v.h. *Warning*: p.h = s is expensive.
     p.u: same as p.v.u.
+    
+**Generators**:
 
-**Getters**::
+    p.children()
+    p.parents()
+    p.self_and_parents()
+    p.self_and_siblings()
+    p.following_siblings()
+    p.subtree()
+    p.self_and_subtree()
+    
+New in Leo 5.5: All generators yield distinct positions.
+
+**Getters**:
 
     p.back()
     p.children()
@@ -367,12 +476,12 @@ http://leoeditor.com/customizing.html#adding-extensible-attributes-to-nodes-and-
     p.visBack()
     p.visNext()
     
-**Setters**::
+**Setters**:
 
-    p.setDirty()
+    p.setDirty() *Warning*: p.setDirty() is expensive.
     p.setMarked()
 
-**Operations on nodes**::
+**Operations on nodes**:
 
     p.clone()
     p.contract()
@@ -386,7 +495,7 @@ http://leoeditor.com/customizing.html#adding-extensible-attributes-to-nodes-and-
     p.moveToRoot(oldRoot=None)
         # oldRoot **must** be the old root position if it exists.
         
-**Moving positions**
+**Moving positions**:
 
 The following move positions *themselves*: they change the node to which a
 position refers. They do *not* change outline structure in any way! Use
@@ -412,7 +521,7 @@ these when generators are not flexible enough::
 </t>
 <t tx="ekr.20131019184243.16700">For full details, see @file leoGlobals.py in LeoPyRef.leo.
 
-**g vars**::
+**g vars**:
 
     g.app
     g.app.gui
@@ -420,11 +529,11 @@ these when generators are not flexible enough::
     g.unitTesting
     g.user_dict  # a temporary dict for use of scripts and plugins.
     
-**g decorator**::
+**g decorator**:
 
     @g.command(command-name)
     
-**g functions** (the most interesting: there are many more in leoGlobals.py)::
+**g functions** (the most interesting: there are many more in leoGlobals.py):
     
     g.angleBrackets()
     g.app.commanders()
@@ -447,7 +556,7 @@ these when generators are not flexible enough::
 <t tx="ekr.20131030071311.17125">By convention, a Startup node contains settings, scripts, etc.
 that mostly one wants to have hidden.
 </t>
-<t tx="ekr.20131030071311.17126">**Imortant**: to take effect, all settings must be descendants of this
+<t tx="ekr.20131030071311.17126">**Important**: to take effect, all settings must be descendants of this
 @settings node.
 
 **Note**: This file colors text as reStructuredText by default because of
@@ -631,6 +740,236 @@ which we are not conscious.
    
 --- The End ---
 
+</t>
+<t tx="ekr.20160315141648.1">@language rest
+@wrap
+
+Leo's Code Academy posts discuss how to do useful things in Leo. The following are distilled from online discussions about Leo's scripting.</t>
+<t tx="ekr.20160315141648.3">uA's (user Attributes) associate arbitrary data with any vnode. uA's are dictionaries of dictionaries--an **outer dictionary** and zero or more **inner dictionaries**. The outer dictionary associates plugin names (or Leo's core) with inner dictionaries. The inner dictionaries carry the actual data.
+
+The v.u or p.v properties get and set uA's. You can think of p.u as a synonym for p.v.unknownAttributes on both sides of an assignment. For example::
+
+    plugin_name = 'test_plugin'
+    d = p.u.get(plugin_name,{})
+    d ['n'] = 8
+    p.u [plugin_name] = d
+
+p.u is the outer dictionary. p.u.get.(plugin_name, {}) is the inner dictionary. The last line is all that is needed to update the outer dictionary!
+
+It is easy to search for particular uA's. The following script prints all the keys in the outer-level uA dictionaries:
+
+    for p in c.all_unique_positions():
+        if p.u:
+            print(p.h, sorted(p.u.keys()))
+
+This is a typical usage of Leo's generators.  Generators visit each position (or node) quickly. Even if you aren't going to program much, you should be aware of how easy it is to get and set the data in each node. In fact, now would be a great time to read Leo's Scripting Tutorial again :-) This will allow you to "dream bigger" with Leo.
+
+The following script creates a list of all positions having an icon, that is, an outer uA dict with a 'icon' key.
+
+    aList = [p.copy() for p in c.all_unique_positions() if 'icon' in p.u]
+    print('\n'.join([p.h for p in aList]))
+
+*Important*: If you don't understand these lines, please study Python's list comprehensions.  They are incredibly useful. '\n'.join(aList) is a great idiom to know.  str.join is one of python's most useful string methods. It converts between lists and strings.
+</t>
+<t tx="ekr.20160315141648.4">@language rest
+
+This script inserts three icons in the current outline node. Running the script again will insert three more::
+
+@language python
+
+    table = (
+        'edittrash.png',
+        'connect_no.png',
+        'error.png',
+    )
+    for icon in table:
+        fn = g.os_path_finalize_join(g.app.loadDir,
+            '..', 'Icons', 'Tango', '16x16', 'status', icon)
+        if g.os_path_exists(fn):
+            c.editCommands.insertIconFromFile(path=fn)
+        
+@language rest
+        
+This deletes all icons of the node at position p::
+
+    c.editCommands.deleteNodeIcons(p=p)
+</t>
+<t tx="ekr.20160315141648.5">Using Leo’s latest sources from GitHub is highly recommended. Once git is installed, the following gets the latest Leo sources::
+
+    git clone https://github.com/leo-editor/leo-editor.git
+
+Thereafter, you can update Leo's sources with::
+
+    git pull
+
+Git is great in tracking history and reverting unwanted changes. And it has many other benefits.
+
+Using git is very similar to using bzr or hg or any other SCCS.  To change Leo, you add files, you commit files, and you push files.  That's about it.
+</t>
+<t tx="ekr.20160315141648.6">@language rest
+
+c.cloneFindByPredicate is a powerful new addition to Leo.  Here is its docstring:
+
+    Traverse the tree given using the generator, cloning all positions for
+    which predicate(p) is True. Undoably move all clones to a new node, created
+    as the last top-level node. Returns the newly-created node. Arguments:
+
+    generator,      The generator used to traverse the tree.
+    predicate,      A function of one argument p returning true if p should be included.
+    failMsg=None,   Message given if nothing found. Default is no message.
+    flatten=False,  True: Move all node to be parents of the root node.
+    iconPath=None,  Full path to icon to attach to all matches.
+    redraw=True,    True: redraw the screen.
+    undo_type=None, The undo/redo name shown in the Edit:Undo menu.
+                    The default is 'clone-find-predicate'
+                    
+For example, clone-find-all-marked command is essentially:
+    
+@language python
+
+    @cmd('clone-find-all-marked')
+    def cloneFindMarked(self, flatten):
+        
+        def isMarked(p):
+            return p.isMarked()
+            
+        self.cloneFindByPredicate(
+            generator = self.all_unique_positions,
+            predicate = isMarked,
+            failMsg = 'nothing found',
+            flatten = flatten,
+            undoType = 'clone-find-marked',
+        )
+        
+@language rest
+
+The predicate could filter on an attribute or *combination* of attributes. For example, the predicate could return p has attributes A and B but *not* attribute C. This instantly gives Leo full database query capabilities. If we then hoist the resulting node we see *all and only* those nodes satisfying the query.
+
+These following position methods make it easy to skip @ignore trees or @&lt;file&gt; trees containing @all::
+        
+    p.is_at_all()          True if p is an @&lt;file&gt; node containing an @all directive.
+    p.in_at_all()          True if p is in an @&lt;file&gt; tree whose root contains @all.
+    p.is_at_ignore()       True if p is an @ignore node
+    p.in_at_ignore_tree()  True if p is in an @ignore tree.
+
+For example, here is how to gather only those marked nodes that lie outside any @ignore tree::
+
+@language python
+
+    def isMarked(p):
+        return p.isMarked() and not p.in_at_ignore_tree()
+      
+    c.cloneFindByPredicate(
+        generator = self.all_unique_positions,
+        predicate = isMarked,
+        flatten = flatten,
+        undoType = 'gather-marked',
+    )
+</t>
+<t tx="ekr.20160401160027.1">Alt-X puts focus in the minibuffer. Ctrl-G escapes from the minibuffer.
+
+Once there, you can use tab completion to reduce typing. For example, &lt;Alt-X&gt;open&lt;tab&gt; shows all commands that start with open.
+
+Hit &lt;Enter&gt; to run a complete command.
+
+Ctrl-P (repeat-complex-command) repeat the last command entered from the minibuffer.
+
+Leo maintains a **command history list** of all minibuffer commands you have entered.
+
+When focus is in the minibuffer, UpArrow shows the previous minibuffer command, and DnArrow show the commands before that.
+
+The body text of an @data history-list *setting node* preloads commands into the command history list, ignoring lines starting with '#'. For example::
+
+    run-pylint
+    beautify-tree
+    cff
+    sort-lines
+    # show-data
+    check-clones
+    expand-log-pane
+    contract-log-pane</t>
+<t tx="ekr.20160410111226.1">**Section names** have the form::
+
+    &lt;&lt; any text, except double closing angle brackets &gt;&gt;
+    
+**Section-definition nodes** have headlines starting with a section name.
+
+Leo performs **expansions** for all @&lt;file&gt; nodes except @asis.
+
+Expansion of @all:
+
+- Leo replaces @all by the *unexpanded* body text of *all* nodes.
+
+Expansion of section names and @others:
+
+- Leo replaces section names in body text by the *expanded*
+  text of the corresponding section definition node.
+  
+- Leo replaces @others with the *expanded* text of all nodes
+  that *aren't* section-definition nodes.
+</t>
+<t tx="ekr.20160410111255.1">Within @path and @&lt;file&gt; paths, Leo evaluates ``{{exp}}`` with the the following symbols defined: ``c``, ``g``, ``p``, ``os`` and ``sys``.  For example::
+
+    @file {{os.path.abspath(os.curdir)}}/abc.py
+    
+refers to the file abc.py in (absolute path of) the current directory.
+</t>
+<t tx="ekr.20170311121717.1">- Use imp.reload to reload all changed modules.
+- Make sure to *instantiate* any changed objects.
+- See "Unit testing with Leo" for full details.
+</t>
+<t tx="ekr.20170311122518.1">Usage: launchLeo.py [options] file1, file2, ...
+    
+    Options:
+      -h, --help            show this help message and exit
+      --debug               enable debug mode
+      --diff                use Leo as an external git diff
+      --fullscreen          start fullscreen
+      --ipython             enable ipython support
+      --fail-fast           stop unit tests after the first failure
+      --gui=GUI             gui to use (qt/qttabs)
+      --load-type=LOAD_TYPE
+                            @&lt;file&gt; type for loading non-outlines from command
+                            line
+      --maximized           start maximized
+      --minimized           start minimized
+      --no-cache            disable reading of cached files
+      --no-plugins          disable all plugins
+      --no-splash           disable the splash screen
+      --screen-shot=SCREENSHOT_FN
+                            take a screen shot and then exit
+      --script=SCRIPT       execute a script and then exit
+      --script-window=SCRIPT_WINDOW
+                            open a window for scripts
+      --select=SELECT       headline or gnx of node to select
+      --session-restore     restore previously saved session tabs at startup
+      --session-save        save session tabs on exit
+      --silent              disable all log messages
+      --trace-plugins       trace imports of plugins
+      -v, --version         print version number and exit
+      --window-size=WINDOW_SIZE
+                            initial window size (height x width)
+</t>
+<t tx="ekr.20170315015836.1">Ivars:
+
+    g.app                   A LeoApp instance.
+    g.app.gui               A LeoGui instance. 
+    g.app.pluginsController A LeoPluginsController instance.
+    g.app.*                 Leo's global variables.
+</t>
+<t tx="ekr.20170403190104.1">**Warning**: The p.b and p.h setters and p.setDirty() are *very* expensive:
+
+- p.b = s calls c.setBodyString(p, s) which will recolor body text and update the node's icon.
+- p.h = s calls c.setHeadString(p, s) which calls p.setDirty().
+- p.setDirty() changes the icons of all ancestor @file nodes.
+
+In contrast, the corresponding p.v.b and p.v.b setters and p.v.setDirty() are extremely fast.
+
+Usually, code *should* use the p.b and p.h setters and p.setDirty(), despite their cost, because they update Leo's outline pane properly. Calling c.redraw() is *not* enough.
+
+These performance gotchas become important for repetitive commands, like cff, replace-all and recursive import. In such situations, code should use p.v.b and p.v.h setters instead of p.b and p.h setters.
+</t>
+<t tx="ekr.20170403190120.1">Scripts may safely assume that most names defined in Leo's core will never change. Names used outside their defining module *can't* be changed, because doing so would impact existing user scripts. This includes virtually everything in leoGlobals.py, and many names in leoCommands.py and other files. The only names that might change are unlikely every to be of use to scripts anyway. For example, helper functions.
 </t>
 </tnodes>
 </leo_file>

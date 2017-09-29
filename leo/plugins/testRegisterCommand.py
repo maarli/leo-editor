@@ -16,7 +16,7 @@ def init():
     g.registerHandler('after-create-leo-frame',onCreate)
     g.plugin_signon(__name__)
     return True
-#@+node:ekr.20051016161205.1: ** onCreate
+#@+node:ekr.20051016161205.1: ** onCreate (testRegisterCommand.py)
 def onCreate(tag,keys):
 
     c = keys.get('c')
@@ -24,7 +24,7 @@ def onCreate(tag,keys):
         def f (event):
             g.es_print('Hello',color='purple')
 
-        c.keyHandler.registerCommand(
-            'print-hello','Alt-Ctrl-Shift-p',f)
+        c.keyHandler.registerCommand('print-hello', f)
+            # shortcut='Alt-Ctrl-Shift-p',
 #@-others
 #@-leo

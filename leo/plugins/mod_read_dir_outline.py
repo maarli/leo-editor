@@ -81,7 +81,7 @@ def onCreate (tag, keywords):
 
     c.frame.menu.createMenuEntries(menu,table,dynamicMenu=True)
 #@+node:ekr.20050301083306.6: ** class controller
-class controller:
+class controller(object):
 
     #@+others
     #@+node:ekr.20050301083306.7: *3* ctor
@@ -109,7 +109,7 @@ class controller:
             g.es(dirName)
             compteurglobal = self.importDir(dirName,compteurglobal=0)
             c.selectPosition(c.p)
-            c.redraw_now()
+            c.redraw()
             if language == 'french':
                 g.es(str(compteurglobal)+" fichiers traités.")
             else:
@@ -155,13 +155,13 @@ class controller:
             #@-<< listdir >>
             p = c.importCommands.createHeadline(current,body,tail)
             c.selectPosition(p)
-            if len(dossiers) > 0:
+            if dossiers:
                 for d in dossiers:
                     compteurglobal = self.importDir(d,compteurglobal)
             c.setChanged(True)
             #sélectionne le noeud parent
             c.selectPosition(current)
-        except:
+        except Exception:
             if language == 'french':
                 g.es("erreur d'insertion de noeud...")
             else:

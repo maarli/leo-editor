@@ -46,7 +46,7 @@ The plugin searches the outline, goes to level one and finds a Node with the Hea
             < <2$> >
             < <1$> >
 
-6. Examine the new subnodes of Node A:  
+6. Examine the new subnodes of Node A:
 
         < < meow ( purrrrrr, zzooot ) > >
             contains the body text of the < < meow > > node.
@@ -101,7 +101,7 @@ def onCreate(tag,keywords):
     if c:
         ParamClass(c)
 #@+node:ekr.20040916091520.2: ** class ParamClass
-class ParamClass:
+class ParamClass(object):
 
     #@+others
     #@+node:ekr.20040916091520.3: *3* __init__
@@ -115,7 +115,7 @@ class ParamClass:
         self.addMenu() # Now gui-independent.
     #@+node:ekr.20040916084945.1: *3* parameterize
     def parameterize (self,event=None):
-        trace = True and not g.unitTesting
+        trace = False and not g.unitTesting
         c = self.c
         w = c.frame.body.wrapper
         # EKR: always search for parms.

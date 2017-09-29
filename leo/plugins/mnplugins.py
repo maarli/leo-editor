@@ -1,7 +1,7 @@
 #@+leo-ver=5-thin
 #@+node:ekr.20040205071616: * @file mnplugins.py
 #@+<< docstring >>
-#@+node:ekr.20050101090717: ** << docstring >>
+#@+node:ekr.20050101090717: ** << docstring >> (mnplugins.py)
 """
 mnplugins.py
 
@@ -10,10 +10,10 @@ define new Commands  "insertOK" + "insertUser"
 create Usermenu with new Commands
 
 new Commands:
-insertOK: 
+insertOK:
     insert 'OK' in headline and a stamp in the first body line
-    are there child nodes without 'OK' verhindern OK in actual node
-    (insertOK on iconrclick2 too)
+    are there child nodes without 'OK' verhindern OK in actual node.
+    The right-click-icon command also inserts 'OK'.
 
 insertUser : Shift-F6
     insert a <user/date/time> stamp at the current location in body text
@@ -32,7 +32,7 @@ __version__ = "0.2"
     # 0.2: EKR: added c arg to setOK: fixes bug reported by pylint.
 
 #@+others
-#@+node:ekr.20100128091412.5381: ** init
+#@+node:ekr.20100128091412.5381: ** init (mnplugins.py)
 def init():
     '''Return True if the plugin has loaded successfully.'''
     g.registerHandler("start1", onStart)
@@ -99,24 +99,20 @@ def onRclick(tag,keywords):
 #@+node:ekr.20040205071616.8: ** insertOKcmd
 def insertOKcmd(self,event=None):
 
-    c=self; v=c.currentVnode()  
+    c=self; v=c.currentVnode()
 
     if is_subnodesOK(v) :
         setHeadOK(c,v)
         insertBodystamp(c,v)
-    else: 
+    else:
         g.es('OK in child missing')
 #@+node:ekr.20040205071616.9: ** insertUser
 def insertUser (self,event=None):
-
     """Handle the Insert User command."""
-
-    c = self ; v = c.currentVnode()
+    c = self
     w = c.frame.body.wrapper
-
     oldSel = w.getSelectionRange()
     w.deleteTextSelection() # Works if nothing is selected.
-
     stamp = mnstamp()
     i = w.getInsertPoint()
     w.insert(i,stamp)

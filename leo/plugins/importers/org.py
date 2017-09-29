@@ -1,93 +1,90 @@
 #@+leo-ver=5-thin
 #@+node:ekr.20140723122936.18146: * @file importers/org.py
-'''The @auto importer for Emacs org-mode.'''
+'''The @auto importer for the org language.'''
+import re
 import leo.core.leoGlobals as g
-import leo.plugins.importers.basescanner as basescanner
+import leo.plugins.importers.linescanner as linescanner
+Importer = linescanner.Importer
 #@+others
-#@+node:ekr.20140723122936.18072: ** class OrgModeScanner
-class OrgModeScanner(basescanner.BaseScanner):
-    '''A class to scan Emacs org-mode files.'''
-    def __init__ (self,importCommands,atAuto):
-        '''ctor for OrgModeScanner class.'''
+#@+node:ekr.20140723122936.18072: ** class Org_Importer
+class Org_Importer(Importer):
+    '''The importer for the org lanuage.'''
+
+    def __init__(self, importCommands):
+        '''Org_Importer.__init__'''
         # Init the base class.
-        basescanner.BaseScanner.__init__(self,
-            importCommands,atAuto=atAuto,language='plain')
-                # Use @language plain.
-        # Overrides of base-class ivars.
-        self.fullChecks = False
-        self.hasDecls = False
-        self.parents = []
+        Importer.__init__(self,
+            importCommands,
+            language = 'plain', # A reasonable @language
+            state_class = None,
+            strict = False,
+        )
 
     #@+others
-    #@+node:ekr.20140723122936.18073: *3* OrgModeScanner.scanHelper & helpers
-    def scanHelper(self,s,i,end,parent,kind):
-        '''
-        Create Leo nodes for all org-mode lines.
-        Overrides BaseScanner.scanHelper.
-        '''
-        assert kind == 'outer' and end == len(s)
-        putRef = False
-        level = 1 # The root has level 0.
-        while i < len(s):
-            progress = i
-            # Get the next line, with k the index of the last char.
-            k = g.skip_line(s,i)
-            line = s[i:k]
-            if line.startswith('*'):
-                # Handle the headline & reset the level.
-                j = 0
-                while j < len(line) and line[j] == '*':
-                    j += 1
-                level = j
-                putRef = True
-                # Cut back the stack, then allocate a new (placeholder) node.
+    #@+node:ekr.20161123194634.1: *3* org_i.gen_lines & helper
+    org_pattern = re.compile(r'^(\*+)(.*)$')
+
+    def gen_lines(self, s, parent):
+        '''Node generator for org mode.'''
+        self.inject_lines_ivar(parent)
+        # We may as well do this first.  See note below.
+        self.add_line(parent, '@others\n')
+        self.parents = [parent]
+        for line in g.splitLines(s):
+            m = self.org_pattern.match(line)
+            if m:
+                # Cut back the stack, then allocate a new node.
+                level = len(m.group(1))
                 self.parents = self.parents[:level]
-                p = self.findParent(level)
-                # Set the headline of the placeholder node.
-                p.h = line[j:k].strip()
+                self.find_parent(
+                    level = level,
+                    h = m.group(2).strip())
             else:
-                # Append the line to the body.
-                p = self.findParent(level)
-                p.b = p.b + line
-            # Move to the next line.
-            i = k
-            assert progress < i,'i: %s %s' % (i,repr(line))
-        return len(s),putRef,0 # bodyIndent not used.
-    #@+node:ekr.20140723122936.18074: *4* oms.findParent
-    def findParent(self,level):
+                p = self.parents[-1]
+                self.add_line(p, line)
+        note = (
+            'Note: This node\'s body text is ignored when writing this file.\n\n' +
+            'The @others directive is not required.\n'
+        )
+        self.add_line(parent, note)
+    #@+node:ekr.20161123194732.2: *4* org_i.find_parent
+    def find_parent(self, level, h):
         '''
         Return the parent at the indicated level, allocating
         place-holder nodes as necessary.
         '''
-        trace = False and not g.unitTesting
         assert level >= 0
-        if not self.parents:
-            self.parents = [self.root]
-        if trace: g.trace(level,[z.h for z in self.parents])
+        # g.trace('=====', level, h)
+        n = level - len(self.parents)
         while level >= len(self.parents):
-            b = ''
-            h = 'placeholder' if level > 1 else 'declarations'
-            parent = self.parents[-1]
-            p = self.createHeadline(parent,b,h)
-            self.parents.append(p)
+            headline = h if n == 0  else 'placeholder'
+            # This works, but there is no way perfect import will pass the result.
+            n -= 1
+            child = self.create_child_node(
+                parent = self.parents[-1],
+                body = None,
+                headline = headline,
+            )
+            self.parents.append(child)
         return self.parents[level]
-    #@+node:ekr.20140723122936.18075: *4* oms.createNode
-    def createNode (self,b,h,level):
+    #@+node:ekr.20161126074103.1: *3* org_i.post_pass
+    def post_pass(self, parent):
+        '''
+        Optional Stage 2 of the importer pipeline, consisting of zero or more
+        substages. Each substage alters nodes in various ways.
 
-        parent = self.findParent(level)
-        p = self.createHeadline(parent,b,h)
-        self.parents = self.parents[:level+1]
-        self.parents.append(p)
-    #@+node:ekr.20140816065309.18222: *4* oms.endGen
-    def endGen (self,s):
-        '''End code generation.'''
-        warning = '\nWarning: this node is ignored when writing this file.\n\n'
-        self.root.b = self.root.b + warning
+        Subclasses may freely override this method, **provided** that all
+        substages use the API for setting body text. Changing p.b directly will
+        cause asserts to fail later in i.finish().
+        '''
+        # Do nothing!
     #@-others
 #@-others
 importer_dict = {
-    '@auto': ['@auto-org','@auto-org-mode',],
-    'class': OrgModeScanner,
-    'extensions': ['.org',],
+    '@auto': ['@auto-org', '@auto-org-mode',],
+    'class': Org_Importer,
+    'extensions': ['.org'],
 }
+#@@language python
+#@@tabwidth -4
 #@-leo

@@ -2,46 +2,51 @@
 #@+node:EKR.20040517075715.10: * @file vim.py
 #@+<< docstring >>
 #@+node:ekr.20050226184411: ** << docstring >>
-''' Enables two-way communication with VIM.
+'''
+#@@language rest
 
-This plugin provides the ``vim-open-node`` command, which opens the
-selected node in vim. This *supersedes* the old way of opening nodes by
-double-clicking the icon box.
+Enables two-way communication with gVim (recommended) or Vim.
 
 Commands
 --------
 
-The **vim-open-node** command opens the selected node in vim. Leo will
-update the node in the outline when you save the file in vim.
+``vim-open-file``
+    Opens the nearest ancestor @file or @clean node in vim. Leo will update the
+    file in the outline when you save the file in vim.
+
+``vim-open-node``
+    Opens the selected node in vim. Leo will update the node in the outline when
+    you save the file in vim.
 
 Installation
 ------------
 
-Enable this plugin as usual and set the ``vim_cmd`` and ``vim_exe``
-settings as shown below. Alternatively, you can ensure that gvim.exe is on
-your PATH. gvim is recommended, not the basic console vim.
+Set the ``vim_cmd`` and ``vim_exe`` settings as shown below.
+
+Alternatively, you can put gvim.exe is on your PATH.
 
 Settings
 --------
 
-**@string vim_cmd** (Important!): The command to execute to start gvim.
-Something like::
-    
-    <path-to-gvim>/gvim --servername LEO
+``@string vim_cmd``
+    The command to execute to start gvim. Something like::
 
-**@string vim_exe** (Important!): The path to the gvim executable.
+        <path-to-gvim>/gvim --servername LEO
 
-**vim_plugin_positions_cursor**: Leo will put Vim cursor at same location as
-Leo cursor in file.
+``@string vim_exe``
+    The path to the gvim executable.
 
-**vim_plugin_uses_tab_feature**: Leo will put node in a Vim tab card.
+``vim_plugin_positions_cursor``
+    True: Leo will put Vim cursor at same location as Leo cursor in file.
+
+``vim_plugin_uses_tab_feature``
+    True: Leo will put the node or file in a Vim tab card.
 
 '''
 #@-<< docstring >>
 #@+<< version history >>
 #@+node:ekr.20050226184411.1: ** << version history >>
 #@@killcolor
-
 #@+at
 # 
 # Contributed by Andrea Galimberti.
@@ -77,7 +82,7 @@ Leo cursor in file.
 # 1.15 EKR: Don't open @url nodes in vim if @bool vim_plugin_opens_url_nodes setting is False.
 # 1.16 TL: open_in_vim modifications
 #     - support file open in gVim at same line number as Leo cursor location
-#     - support file open in a gVim tab (see also mod_tempfname.py)
+#     - support file open in a gVim tab
 # 1.17 EKR: Give a location message to help with settings.
 # 1.18 VMV:
 #     - Use gvim on Linux too, emergency default on Windows doesn't have explicit path
@@ -86,9 +91,11 @@ Leo cursor in file.
 #@-<< version history >>
 #@+<< documentation from Jim Sizelove >>
 #@+node:ekr.20050909102921: ** << documentation from Jim Sizelove >>
-#@@nocolor
-
-#@+at I was trying to get Leo to work more effectively with Vim, my editor of choice.
+#@+at
+#@@language rest
+#@@wrap
+# 
+# I was trying to get Leo to work more effectively with Vim, my editor of choice.
 # To do so, I made several changes to Leo which (I believe) make it work better.
 # 
 # After much exploring and trying various things, I made a change to the os.spawnv
@@ -97,17 +104,22 @@ Leo cursor in file.
 # opening Vim with os.spawnv.
 # 
 # os.spawnv needs the command it is calling as the first argument in the args list
-# in addition, so the command actually shows twice in the total args to os.spawnv,
-# e.g.::
+# in addition, so the command actually shows twice in the total args to os.spawnv.
+# For example::
+# 
 #     os.spawnv(os.P_NOWAIT, "C:/Program Files/Vim/vim63/gvim.exe",
 #         ["gvim.exe", "--servername", "LEO", "--remote", "foo.txt"])
+# 
 # If the call is made without the command-name as the first item in the list of
 # args, like so::
+# 
 #     os.spawnv(os.P_NOWAIT, "C:/Program Files/Vim/vim63/gvim.exe",
 #         ["--servername", "LEO", "--remote", "foo.txt"])
 # 
 # an error message pops up::
+# 
 #     E247: no registered server named "GVIM": Send failed.  Trying to execute locally
+# 
 # This message means that gVim is not looking for a server named "LEO", which
 # presumably the user has already opened with the command "gvim --servername LEO".
 # Instead it is looking for a server named "GVIM", and not finding it, opens the
@@ -119,170 +131,247 @@ Leo cursor in file.
 #         os.P_NOWAIT, "C:/Program Files/Vim/vim63/gvim.exe",
 #         ["gvim.exe", "--servername", "LEO", "--remote", "foo.txt"])
 # 
-# everything works great, as long as the user doesn't close the gVim window. If
+# Everything works great, as long as the user doesn't close the gVim window. If
 # the user has closed the gVim window, then tries to open a node in Vim, they will
 # see this error message::
 # 
 #     E247: no registered server named "LEO": Send failed.
 # 
-# Trying to execute locally If you use the "--remote-silent" argument, gVim will
+# Trying to execute locally If you use the ``--remote-silent`` argument, gVim will
 # start the LEO server without the error message.
 # 
-# One other comment:  you can see which servers gVim has running by typing::
+# You can see which servers gVim has running by typing the following at the
+# command prompt::
 # 
 #     vim --serverlist
-# 
-# at the command prompt.
 # 
 # The rest of my changes have to do with using the subprocess module instead of
 # the os.system, and various os.spawn* calls. I find subprocess easier to
 # understand, and it is fairly simple to use for the most common kinds of process
 # calls, but is capable of all the variations you may need. It is designed to
-# replace all the os.system, os.spawn*, and popen* calls. It is available in
-# Python 2.4.
+# replace all the os.system, os.spawn, and popen calls. It is available in Python
+# 2.4.
 # 
-# So I added some lines to use subprocess in the OpenWith plugin and the Vim plugin.
+# So I added some lines to use subprocess in the OpenWith plugin and the Vim
+# plugin.
 # 
-# I also have added a table in the "create_open_with_menu" function that makes use of the various editors I have used at times.  Most of those editors are called with subprocess.Popen.
+# I also have added a table in the "create_open_with_menu" function that makes use
+# of the various editors I have used at times. Most of those editors are called
+# with subprocess.Popen.
 #@-<< documentation from Jim Sizelove >>
 #@+<< imports >>
 #@+node:ekr.20050226184411.2: ** << imports >>
 import leo.core.leoGlobals as g
-
 import os
+import subprocess
 import sys
 #@-<< imports >>
-
 # This command is used to communicate with the vim server. If you use gvim
 # you can leave the command as is, you do not need to change it to "gvim ..."
-
-# New in version 1.10 of these plugin: these are emergency defaults only.
+# New in version 1.10 of this plugin: these are emergency defaults only.
 # They are typically overridden by the corresponding 'vim_cmd' and 'vim_exe' settings in
 # leoSettings.leo or individual .leo files.
-
 if sys.platform == 'win32':
     # Works on XP if you have gvim on PATH
-    _vim_cmd = r"gvim --servername LEO"
-    _vim_exe = r"gvim"
+    _vim_cmd = "gvim --servername LEO"
+    _vim_exe = "gvim"
 elif sys.platform == 'darwin':
     _vim_cmd = "/Applications/gvim.app/Contents/MacOS/gvim --servername LEO"
     _vim_exe = "gvim"
-else: 
+else:
     _vim_cmd = "gvim --servername LEO"
     _vim_exe = "gvim"
-
+# Global message flags.
+contextmenu_message_given = False
 locationMessageGiven = False
-
 #@+others
 #@+node:ekr.20050226184624: ** init
-def init ():
+def init():
     '''Return True if the plugin has loaded successfully.'''
     ok = not g.app.unitTesting # Don't conflict with xemacs plugin.
     if ok:
         # print ('vim.py enabled')
         # Register the handlers...
-
         # event = 'open2'
         # g.registerHandler(event,on_open_window)
-
         # Enable the os.system call if you want to
         # start a (g)vim server when Leo starts.
         if 0: os.system(_vim_cmd)
         g.plugin_signon(__name__)
     return ok
-#@+node:ekr.20120315101404.9745: ** g.command('vim-open-node')
-@g.command('vim-open-node')
-def open_in_vim_command(event):
-
-    """ Open current node in (g)vim
-
-        Provied by vim.py plugin
-        """
+#@+node:ekr.20150326150910.1: ** g.command('vim-open-file')
+@g.command('vim-open-file')
+def vim_open_file_command(event):
+    '''vim.py: Open the entire file in (g)vim.'''
     c = event.get('c')
     if c:
-        open_in_vim_helper(c)
-#@+node:ekr.20120315101404.9746: *3* open_in_vim_helper
-contextmenu_message_given = False
-
-def open_in_vim_helper (c):
-    
-    p = c.p
-    v = p.v
-
-    # Load contextmenu plugin if required.
-    contextMenu = g.loadOnePlugin('contextmenu.py',verbose=True)
-    if not contextMenu:
-        if not contextmenu_message_given:
+        VimCommander(c, entire_file=True)
+#@+node:ekr.20120315101404.9745: ** g.command('vim-open-node')
+@g.command('vim-open-node')
+def vim_open_node_command(event):
+    '''vim.py: open the selected node in (g)vim.'''
+    c = event.get('c')
+    if c:
+        VimCommander(c, entire_file=False)
+#@+node:ekr.20150326153420.1: ** class VimCommander
+class VimCommander(object):
+    '''A class implementing the vim plugin.'''
+    #@+others
+    #@+node:ekr.20150326155343.1: *3*  vim.ctor
+    def __init__(self, c, entire_file):
+        '''Ctor for the VimCommander class.'''
+        self.c = c
+        self.entire_file = entire_file
+        # compute settings.
+        getBool, getString = c.config.getBool, c.config.getString
+        self.open_url_nodes = getBool('vim_plugin_opens_url_nodes')
+        self.position_cursor = getBool('vim_plugin_positions_cursor')
+        self.trace = False or getBool('vim_plugin_trace')
+        self.uses_tab = getBool('vim_plugin_uses_tab_feature')
+        self.vim_cmd = getString('vim_cmd') or _vim_cmd
+        self.vim_exe = getString('vim_exe') or _vim_exe
+        # Give messages.
+        global locationMessageGiven
+        if self.trace and not locationMessageGiven:
+            locationMessageGiven = True
+            print('vim_cmd: %s' % self.vim_cmd)
+            print('vim_exe: %s' % self.vim_exe)
+        self.open_in_vim()
+    #@+node:ekr.20150326183310.1: *3* vim.error
+    def error(self, s):
+        '''Report an error.'''
+        g.es_print(s, color='red')
+    #@+node:ekr.20120315101404.9746: *3* vim.open_in_vim & helpers
+    def open_in_vim(self):
+        '''Open p in vim, or the entire enclosing file if entire_file is True.'''
+        trace = (False or self.trace) and not g.unitTesting
+        p = self.c.p
+        if not self.check_args():
+            return
+        root = self.find_root(p) if self.entire_file else p
+        if not root:
+            return
+        path = self.find_path_for_node(root)
+        if path and self.should_open_old_file(path, root):
+            if trace: g.trace('old file:', path)
+            cmd = self.vim_cmd + "--remote-send '<C-\\><C-N>:e " + path + "<CR>'"
+            if self.trace: g.trace('os.system(%s)' % cmd)
+            os.system(cmd)
+        else:
+            # Open a new temp file.
+            if trace: g.trace('new file:', path)
+            if path: self.forget_path(path)
+            self.open_file(root)
+    #@+node:ekr.20150326183613.1: *4* vim.check_args & helper
+    def check_args(self):
+        '''Return True of basic checks pass.'''
+        p = self.c.p
+        contextMenu = self.load_context_menu()
+        if not contextMenu:
+            return False
+        if not self.open_url_nodes and p.h.startswith('@url'):
+            return False
+        else:
+            return True
+    #@+node:ekr.20150326154203.1: *5* vim.load_context_menu
+    def load_context_menu(self):
+        '''Load the contextmenu plugin.'''
+        global contextmenu_message_given
+        contextMenu = g.loadOnePlugin('contextmenu.py', verbose=True)
+        if not contextMenu and not contextmenu_message_given:
             contextmenu_message_given = True
-            g.trace('can not load contextmenu.py')
-        return
-
-    if p.h.find('file-ref') == 1: # Must be at 2nd position
-        return
-
-    #URL nodes
-    openURLNodes = c.config.getBool('vim_plugin_opens_url_nodes')
-    if not openURLNodes and p.h.startswith('@url'):
-        return # Avoid conflicts with @url nodes.
-
-    vim_cmd = c.config.getString('vim_cmd') or _vim_cmd
-    vim_exe = c.config.getString('vim_exe') or _vim_exe
-
-    global locationMessageGiven
-
-    if not locationMessageGiven:
-        locationMessageGiven = True
-        print('vim_cmd: %s' % vim_cmd)
-        print('vim_exe: %s' % vim_exe)
-
-    #Cursor positioning
-    Lnum = ""
-    if c.config.getBool('vim_plugin_positions_cursor'):    
-        #Line number - start at same line as Leo cursor
-        #  get node's body text
-        wrapper = c.frame.body.wrapper
-        s = wrapper.getAllText()    
-        #  Get cursors row & column number
-        index = wrapper.getInsertPoint()
-        row,col = g.convertPythonIndexToRowCol(s,index)
-        #  Build gVim command line parameter for setting cursor row
-        Lnum = "+" + str(row + 1)
-
-    #Vim's tab card stack
-    useTabs = ""
-
-    if c.config.getBool('vim_plugin_uses_tab_feature'):    
-        useTabs = "-tab"
-
-    # Search g.app.openWithFiles for a file corresponding to v.
-    for d in g.app.openWithFiles:
-        if d.get('v') == id(v):
-            path = d.get('path','') ; break
-    else: path = ''
-
-    # if the body has changed we need to open a new 
-    # temp file containing the new body in vim
-    if (
-        not g.os_path_exists(path) or 
-        not hasattr(v,'OpenWithOldBody') or
-        v.b != v.OpenWithOldBody
-    ):
-        # Open a new temp file.
-        if path:
-            # Remove the old file and the entry in g.app.openWithFiles.
-            os.remove(path)
-            g.app.openWithFiles = [d for d in g.app.openWithFiles if d.get('path') != path]
-            os.system(vim_cmd+"--remote-send '<C-\\><C-N>:bd "+path+"<CR>'")
-
-        v.OpenWithOldBody=v.b # Remember the previous contents.
-    
-        # New code by Jim Sizemore. TL: added support for gVim tabs.
-        args = [vim_exe,"--servername","LEO","--remote"+useTabs+"-silent",Lnum]
-        d = {'kind':'subprocess.Popen','args':args,'ext':None}
-        c.openWith(d=d)
-    else:
-        # Reopen the old temp file.
-        os.system(vim_cmd+"--remote-send '<C-\\><C-N>:e "+path+"<CR>'")
+            self.error('can not load contextmenu.py')
+        return contextMenu
+    #@+node:ekr.20150326180515.1: *4* vim.find_path_for_node
+    def find_path_for_node(self, p):
+        '''Search the open-files list for a file corresponding to p.'''
+        efc = g.app.externalFilesController
+        path = efc.find_path_for_node(p)
+        return path
+    #@+node:ekr.20150326173414.1: *4* vim.find_root
+    def find_root(self, p):
+        '''Return the nearest ancestor @auto or @clean node.'''
+        assert self.entire_file
+        for p2 in p.self_and_parents():
+            if p2.isAnyAtFileNode():
+                return p2
+        self.error('no parent @auto or @clean node: %s' % p.h)
+        return None
+    #@+node:ekr.20150326173301.1: *4* vim.forget_path
+    def forget_path(self, path):
+        '''
+        Stop handling the path:
+        - Remove the path from the list of open-with files.
+        - Send a command to vim telling it to close the path.
+        '''
+        trace = (False or self.trace) and not g.unitTesting
+        assert path
+        # Don't do this: it prevents efc from reopening paths.
+            # efc = g.app.externalFilesController
+            # if efc: efc.forget_path(path)
+        if 0: # Dubious.
+            if g.os_path_exists(path):
+                os.remove(path)
+        cmd = self.vim_cmd + "--remote-send '<C-\\><C-N>:bd " + path + "<CR>'"
+        if trace: g.trace('os.system(%s)' % cmd)
+        os.system(cmd)
+    #@+node:ekr.20150326181247.1: *4* vim.get_cursor_arg
+    def get_cursor_arg(self):
+        '''Compute the cursor argument for vim.'''
+        if self.position_cursor:
+            wrapper = self.c.frame.body.wrapper
+            s = wrapper.getAllText()
+            ins = wrapper.getInsertPoint()
+            row, col = g.convertPythonIndexToRowCol(s, ins)
+            return "+" + str(row + 1)
+        else:
+            return ''
+    #@+node:ekr.20150326180928.1: *4* vim.open_file
+    def open_file(self, root):
+        '''Open the the file in vim using c.openWith.'''
+        trace = (False or self.trace) and not g.unitTesting
+        c = self.c
+        efc = g.app.externalFilesController
+        # Common arguments.
+        if trace: g.trace(self.entire_file, root.h)
+        # cursor_arg = self.get_cursor_arg()
+        tab_arg = "-tab" if self.uses_tab else ""
+        remote_arg = "--remote" + tab_arg + "-silent"
+        args = [self.vim_exe, "--servername", "LEO", remote_arg] # No cursor arg.
+        if self.entire_file:
+            # vim-open-file
+            assert root.isAnyAtFileNode(), root
+            dir_ = g.setDefaultDirectory(c, root)
+            fn = c.os_path_finalize_join(dir_, root.anyAtFileNodeName())
+        else:
+            # vim-open-node
+            ext = 'txt'
+            fn = efc.create_temp_file(c, ext, c.p)
+        c_arg = '%s %s' % (' '.join(args), fn)
+        command = 'subprocess.Popen(%s,shell=True)' % c_arg
+        if trace: g.trace(command)
+        try:
+            subprocess.Popen(c_arg, shell=True)
+        except OSError:
+            g.es_print(command)
+            g.es_exception()
+    #@+node:ekr.20150326173000.1: *4* vim.should_open_old_file
+    def should_open_old_file(self, path, root):
+        '''Return True if we should open the old temp file.'''
+        v = root.v
+        return (
+            path and g.os_path_exists(path) and
+            hasattr(v.b, '_vim_old_body') and v.b == v._vim_old_body
+        )
+    #@+node:ekr.20150326175258.1: *3* vim.write_root (not used)
+    def write_root(self, root):
+        '''Return the concatenation of all bodies in p's tree.'''
+        result = []
+        for p in root.self_and_subtree():
+            s = p.b
+            result.append(s if s.endswith('\n') else s.rstrip() + '\n')
+        return ''.join(result)
+    #@-others
 #@-others
 #@@language python
 #@@tabwidth -4

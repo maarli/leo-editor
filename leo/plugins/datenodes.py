@@ -85,7 +85,7 @@ def init():
     g.plugin_signon(__name__)
     return True # OK for unit testing.
 #@+node:gfunch.20041207100416.5: ** class DateNodes
-class DateNodes:
+class DateNodes(object):
     """Main DateNodes class"""
 
     # The defaults for all possible settings.
@@ -105,24 +105,24 @@ class DateNodes:
     # Names of settings that have to be read with getBool()
     boolean_settings = [
         "datenodes_month_node_omit_saturdays",
-        "datenodes_month_node_omit_sundays", 
+        "datenodes_month_node_omit_sundays",
         "datenodes_year_node_omit_saturdays",
         "datenodes_year_node_omit_sundays"
     ]
     ascii_encoder = codecs.getencoder("ASCII")
 
     #@+others
-    #@+node:gfunch.20041207100416.6: *3* __init__
+    #@+node:gfunch.20041207100416.6: *3* __init__(DateNodes, datenodes.py)
     def __init__(self, c):
         self.c = c
         self._get_settings()
 
-        for command, method in (
+        for commandName, method in (
             ('datenodes-today', self.insert_day_node),
             ('datenodes-this-month', self.insert_month_node),
             ('datenodes-this-year', self.insert_year_node),
         ):
-            c.k.registerCommand(command, shortcut=None, func=method)
+            c.k.registerCommand(commandName, method)
     #@+node:gfunch.20041209073652: *3* _get_settings
     def _get_settings(self):
         """Get any configuration options."""
@@ -210,7 +210,7 @@ class DateNodes:
         for month in range(1, 13):
             month_date = datetime.date(year, month, day)
 
-            self._insert_month_node(parent = year_node, date = month_date, day_fmt = day_fmt, month_fmt = month_fmt, 
+            self._insert_month_node(parent = year_node, date = month_date, day_fmt = day_fmt, month_fmt = month_fmt,
                                     omit_saturdays = omit_saturdays, omit_sundays = omit_sundays)
 
 

@@ -8,8 +8,9 @@ alt-x stickynote to pop out current node as a note.
 
 '''
 #@-<< docstring >>
+# Disable Qt warnings.
 #@+<< imports >>
-#@+node:ekr.20100103100944.5391: ** << imports >>
+#@+node:ekr.20100103100944.5391: ** << imports >> (stickynotes_plus.py)
 import leo.core.leoGlobals as g
 
 # Fail gracefully if the gui is not qt.
@@ -27,10 +28,23 @@ except SyntaxError:
     print('stickynotes_plus.py: syntax error in markdown')
     markdown = None
 
-from PyQt4.QtCore import (QSize,QVariant, Qt,SIGNAL,QTimer,QString)
-from PyQt4.QtGui import (QAction,QFont,QIcon,QMenu,QTextCursor,
-    QTextCharFormat,QTextBlockFormat,QTextListFormat,QTextEdit,QPlainTextEdit)
-    # QApplication,QColor,QFontMetrics,QKeySequence, QPixmap, 
+from leo.core.leoQt import QString, QtCore, QtGui, QtWidgets # isQt5,
+Qt = QtCore.Qt
+# Widgets
+QAction = QtWidgets.QAction
+QMenu = QtWidgets.QMenu
+QPlainTextEdit = QtWidgets.QPlainTextEdit
+QTextEdit = QtWidgets.QTextEdit
+# Other gui elements.
+QFont = QtGui.QFont
+QIcon = QtGui.QIcon
+QSize = QtCore.QSize
+QTextBlockFormat = QtGui.QTextBlockFormat
+QTextCharFormat = QtGui.QTextCharFormat
+QTextCursor = QtGui.QTextCursor
+QTextListFormat = QtGui.QTextListFormat
+QTimer = QtCore.QTimer
+QVariant = QtCore.QVariant
 #@-<< imports >>
 #@+others
 #@+node:ekr.20100103100944.5392: ** styling
@@ -50,7 +64,7 @@ QPlainTextEdit {
 
 def decorate_window(w):
     w.setStyleSheet(stickynote_stylesheet)
-    w.setWindowIcon(QIcon(g.app.leoDir + "/Icons/leoapp32.png"))    
+    w.setWindowIcon(QIcon(g.app.leoDir + "/Icons/leoapp32.png"))
     w.resize(600, 300)
 
 #@+node:ekr.20100103100944.5393: ** init
@@ -61,13 +75,13 @@ def init ():
     if ok:
         #g.registerHandler('start2',onStart2)
         g.plugin_signon(__name__)
-    g.app.stickynotes = {}    
+    g.app.stickynotes = {}
     return ok
 #@+node:ekr.20100103100944.5394: ** class FocusingPlainTextEdit
 class FocusingPlaintextEdit(QPlainTextEdit):
 
     def __init__(self, focusin, focusout):
-        QPlainTextEdit.__init__(self)        
+        QPlainTextEdit.__init__(self)
         self.focusin = focusin
         self.focusout = focusout
 
@@ -75,7 +89,7 @@ class FocusingPlaintextEdit(QPlainTextEdit):
         #print "focus out"
         self.focusout()
 
-    def focusInEvent (self, event):        
+    def focusInEvent (self, event):
         self.focusin()
 
     def closeEvent(self, event):
@@ -86,7 +100,7 @@ class FocusingPlaintextEdit(QPlainTextEdit):
 #@+node:ekr.20100103100944.5395: ** class SimpleRichText
 class SimpleRichText(QTextEdit):
     def __init__(self, focusin, focusout):
-        QTextEdit.__init__(self)        
+        QTextEdit.__init__(self)
         self.focusin = focusin
         self.focusout = focusout
         self.createActions()
@@ -97,19 +111,20 @@ class SimpleRichText(QTextEdit):
         #print "focus out"
         self.focusout()
 
-    def focusInEvent ( self, event ):        
+    def focusInEvent ( self, event ):
         self.focusin()
 
 
     def closeEvent(self, event):
-        event.accept()        
+        event.accept()
 
     def createActions(self):
         self.boldAct = QAction(self.tr("&Bold"), self)
         self.boldAct.setCheckable(True)
         self.boldAct.setShortcut(self.tr("Ctrl+B"))
         self.boldAct.setStatusTip(self.tr("Make the text bold"))
-        self.connect(self.boldAct, SIGNAL("triggered()"), self.setBold)
+        ### self.connect(self.boldAct, SIGNAL("triggered()"), self.setBold)
+        self.triggered.connect(self.setBold)
         self.addAction(self.boldAct)
 
         boldFont = self.boldAct.font()
@@ -120,7 +135,8 @@ class SimpleRichText(QTextEdit):
         self.italicAct.setCheckable(True)
         self.italicAct.setShortcut(self.tr("Ctrl+I"))
         self.italicAct.setStatusTip(self.tr("Make the text italic"))
-        self.connect(self.italicAct, SIGNAL("triggered()"), self.setItalic)
+        ### self.connect(self.italicAct, SIGNAL("triggered()"), self.setItalic)
+        self.triggered.connect(self.setItalic)
         self.addAction(self.italicAct)
 
     def setBold(self):
@@ -167,34 +183,28 @@ class notetextedit(QTextEdit):
         super(notetextedit, self).__init__(parent)
 
         self.save = save
-
         self.setLineWrapMode(QTextEdit.WidgetWidth)
         self.setTabChangesFocus(True)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setMinimumWidth(300)
-
         self.setMouseTracking(True)
-
         font = QFont()
         font.setPointSize(10)
         font.setFamily("helvetica")
         document = self.document()
         document.setDefaultFont(font)
-
         self.font = font
-
-        document.setDefaultStyleSheet("pre{margin-top:0px; margin-bottom:0px} li{margin-top:0px; margin-bottom:0px}")
-
+        document.setDefaultStyleSheet(
+            "pre{margin-top:0px; margin-bottom:0px} li{margin-top:0px; margin-bottom:0px}")
         QTimer.singleShot(0, get_markdown)
-
     #@+node:ekr.20100103100944.5398: *3* focusOutEvent
     def focusOutEvent__(self, event):
         #print "focus out"
         self.focusout()
 
     #@+node:ekr.20100103100944.5399: *3* focusInEvent
-    def focusInEvent__(self, event):        
+    def focusInEvent__(self, event):
         self.focusin()
 
     #@+node:ekr.20100103100944.5400: *3* toggleItalic
@@ -292,12 +302,13 @@ class notetextedit(QTextEdit):
         else:
             text = '<a href="http://{0}">{0}</a> '.format(text)
 
-        # the below works but doesn't pick up highlighting of an anchor - would have to do the underlining and blue color
-        #format = QTextCharFormat()
-        #format.setAnchor(True)
-        #format.setAnchorHref(text)
-        #cursor.setCharFormat(format)
-        ##self.setTextCursor(cursor)
+        # the below works but doesn't pick up highlighting of an anchor
+        # would have to do the underlining and blue color
+            #format = QTextCharFormat()
+            #format.setAnchor(True)
+            #format.setAnchorHref(text)
+            #cursor.setCharFormat(format)
+            #self.setTextCursor(cursor)
 
         #this also works and generates highlighting
         cursor.deleteChar()
@@ -386,9 +397,9 @@ class notetextedit(QTextEdit):
 
     #@+node:ekr.20100103100944.5414: *3* textEffectMenu
     def textEffectMenu(self):
-        format = self.currentCharFormat()
-        cursor = self.textCursor()
-        blockformat = cursor.blockFormat()
+        # format = self.currentCharFormat()
+        # cursor = self.textCursor()
+        # blockformat = cursor.blockFormat()
         menu = QMenu("Text Effect")
         for text, shortcut, data, checked in (
                 ("&Bold", "Ctrl+B", notetextedit.Bold,
@@ -397,7 +408,7 @@ class notetextedit(QTextEdit):
                  self.fontItalic()),
                 ("&Monospaced", None, notetextedit.Code,
                  self.fontFixedPitch())
-                ): 
+                ):
 
             action = menu.addAction(text, self.setTextEffect)
             #if shortcut is not None:
@@ -489,7 +500,8 @@ class notetextedit(QTextEdit):
         #print "mouseMoveEvent"
         pos = event.pos()
         anch = self.anchorAt(pos)
-        self.viewport().setCursor(Qt.PointingHandCursor if anch else Qt.IBeamCursor)
+        self.viewport().setCursor(
+            Qt.PointingHandCursor if anch else Qt.IBeamCursor)
         QTextEdit.mouseMoveEvent(self, event) #? recursion
 
     #@+node:ekr.20100103100944.5417: *3* mouseReleaseEvent
@@ -497,7 +509,7 @@ class notetextedit(QTextEdit):
         #print("mouseReleaseEvent")
         pos = event.pos()
         url = g.u(self.anchorAt(pos))
-        if url:            
+        if url:
             if not url.startswith('http://'): #linux seems to need this
                 url = 'http://{0}'.format(url)
             webbrowser.open(g.u(url),new=2,autoraise=True)
@@ -515,7 +527,7 @@ class notetextedit(QTextEdit):
             else:
                 text = '<a href="http://{0}">{0}</a> '.format(text)
             self.insertHtml(text)
-        else:   
+        else:
             QTextEdit.insertFromMimeData(self, source)
 
     #@+node:ekr.20100103100944.5419: *3* toMarkdown
@@ -538,7 +550,7 @@ class notetextedit(QTextEdit):
                 #doc += textList.itemText(block) + ' ' + textList.item(textList.itemNumber(block)).text() + '\n\n'
             else:
                 if block.textList():
-                    doc += '  '+block.textList().itemText(block) + ' ' 
+                    doc += '  '+block.textList().itemText(block) + ' '
                 # para = QString()
                 para = g.u('')
                 iterator = block.begin()
@@ -556,7 +568,7 @@ class notetextedit(QTextEdit):
                         if char_format.isAnchor():
                             ref = text if text.startswith('http://') else 'http://{0}'.format(text)
                             # too lazy right now to check if URL has already been referenced but should
-                            references += "  [{0}]: {1}\n".format(i,ref)                            
+                            references += "  [{0}]: {1}\n".format(i,ref)
                             text = "[{0}][{1}]".format(text,i)
                             i+=1
                         elif font_size > 10:
@@ -570,7 +582,9 @@ class notetextedit(QTextEdit):
                             text = QString("`%1`").arg(text)
                         elif char_format.fontItalic():
                             text = QString("*%1*").arg(text)
-                        elif char_format.fontWeight() > QFont.Normal: #font-weight:600; same as for an H1; H1 font-size:xx-large; H1 20; H2 15 H3 12
+                        elif char_format.fontWeight() > QFont.Normal:
+                            #font-weight:600; same as for an H1;
+                            #H1 font-size:xx-large; H1 20; H2 15 H3 12
                             text = QString("**%1**").arg(text)
 
                         para += text
@@ -618,11 +632,9 @@ def stickynote_f(event):
     def textchanged_cb():
         nf.dirty = True
 
-    nf.connect(nf,
-        SIGNAL("textChanged()"),textchanged_cb)
-
+    ### nf.connect(nf, SIGNAL("textChanged()"),textchanged_cb)
+    nf.textChanged.connect(textchanged_cb)
     nf.show()
-
     g.app.stickynotes[p.gnx] = nf
 #@+node:ekr.20100103100944.5421: ** g.command('stickynoter')
 @g.command('stickynoter')
@@ -661,18 +673,15 @@ def stickynoter_f(event):
     def textchanged_cb():
         nf.dirty = True
 
-    nf.connect(nf,
-        SIGNAL("textChanged()"),textchanged_cb)
-
+    ### nf.connect(nf,SIGNAL("textChanged()"),textchanged_cb)
+    nf.textChanged.connect(textchanged_cb)
     nf.show()
-
     g.app.stickynotes[p.gnx] = nf
 #@+node:ekr.20100103100944.5422: ** g.command('stickynoteplus')
 @g.command('stickynoteplus')
 def stickynoteplus_f(event):
     """ Launch editable 'sticky note' for the node """
-
-    c= event['c']
+    c = event['c']
     p = c.p
     v = p.v
     def get_markdown(): #focusin():
@@ -705,11 +714,9 @@ def stickynoteplus_f(event):
     def textchanged_cb():
         nf.dirty = True
 
-    nf.connect(nf,
-        SIGNAL("textChanged()"),textchanged_cb)
-
+    ### nf.connect(nf, SIGNAL("textChanged()"),textchanged_cb)
+    nf.textChanged.connect(textchanged_cb)
     nf.show()
-
     g.app.stickynotes[p.gnx] = nf
 #@-others
 #@@language python

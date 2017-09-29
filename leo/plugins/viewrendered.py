@@ -1,7 +1,7 @@
 #@+leo-ver=5-thin
 #@+node:tbrown.20100318101414.5990: * @file viewrendered.py
-#@+<< docstring >>
-#@+node:tbrown.20100318101414.5991: ** << docstring >> (viewrendered.py)
+#@+<< vr docstring >>
+#@+node:tbrown.20100318101414.5991: ** << vr docstring >>
 '''
 
 Creates a window for *live* rendering of reSTructuredText, markdown text,
@@ -23,12 +23,12 @@ viewrendered.py creates the following (``Alt-X``) commands:
 
 ``viewrendered (abbreviated vr)``
     Opens a new rendering window.
-    
+
     By default, the rendering pane renders body text as reStructuredText,
     with all Leo directives removed.
     However, if the body text starts with ``<`` (after removing directives),
     the body text is rendered as html.
-    
+
     **Important**: The default rendering just described does not apply to nodes
     whose headlines begin with @image, @html, @movie, @networkx, @svg and @url.
     See the section called **Special Renderings** below.
@@ -51,7 +51,7 @@ viewrendered.py creates the following (``Alt-X``) commands:
     of the presently selected node.
     When locked, the rendering pane does not change when other nodes are selected.
     This is useful for playing movies in the rendering pane.
-    
+
 ``vr-pause-play-movie``
     This command has effect only if the rendering pane is presently showing a movie.
     It pauses the movie if playing, or resumes the movie if paused.
@@ -61,13 +61,13 @@ viewrendered.py creates the following (``Alt-X``) commands:
 
 ``vr-toggle``
     Shows the rendering pane if invisible, otherwise hides it.
-    
+
 ``vr-update``
     Forces an update of the rendering pane.
     This is especially useful for @graphics-script nodes:
     such nodes are update automatically only when selected,
     not when the body text changes.
-    
+
 Rendering reStructuredText
 ==========================
 
@@ -89,7 +89,7 @@ will look something like:
     **Heading**
 
     `This` is **really** a line of text.
-    
+
 **Important**: reStructuredText errors and warnings will appear in red in the rendering pane.
 
 Rendering markdown
@@ -117,10 +117,10 @@ contain a filename.  If relative, the filename is resolved relative to Leo's loa
 
 - ``@graphics-script`` executes the script in the body text in a context containing
   two predefined variables:
-      
+
     - gs is the QGraphicsScene for the rendering pane.
     - gv is the QGraphicsView for the rendering pane.
-    
+
   Using these variables, the script in the body text may create graphics to the rendering pane.
 
 - ``@image`` renders the file as an image.
@@ -140,8 +140,6 @@ contain a filename.  If relative, the filename is resolved relative to Leo's loa
   **Note**: if the first character of the body text is ``<`` after removing Leo directives,
   the contents of body pane is taken to be an svg image.
 
-.. - ``@url`` is non-functional at present.
-
 Settings
 ========
 
@@ -150,16 +148,16 @@ Settings
 
 - ``@bool view-rendered-auto-create = False``
   When True, show the rendering pane when Leo opens an outline.
-  
+
 - ``@bool view-rendered-auto-hide = False``
   When True, hide the rendering pane for text-only renderings.
 
 - ``@string view-rendered-default-kind = rst``
   The default kind of rendering.  One of (big,rst,md,html)
-  
+
 - ``@string view-rendered-md-extensions = extra``
   A comma-delineated list of markdown extensions to use.
-  Suitable extensions can be seen here: 
+  Suitable extensions can be seen here:
   http://pythonhosted.org/Markdown/extensions/index.html
 
 Acknowledgments
@@ -174,7 +172,7 @@ and coordination between the free_layout, NestedSplitter and viewrendered plugin
 Jacob Peck added markdown support to this plugin.
 
 '''
-#@-<< docstring >>
+#@-<< vr docstring >>
 #@+<< to do >>
 #@+node:ekr.20140924060835.19485: ** << to do >>
 #@+at
@@ -187,17 +185,16 @@ Jacob Peck added markdown support to this plugin.
 # - Support uA's that indicate the kind of rendering desired.
 # - (Failed) Make viewrendered-big work.
 #@-<< to do >>
-
+#pylint: disable=no-member
 trace = False
     # This global trace is convenient.
-
 #@+<< imports >>
 #@+node:tbrown.20100318101414.5993: ** << imports >> (viewrendered.py)
 import leo.core.leoGlobals as g
 import leo.plugins.qt_text as qt_text
-from leo.core.leoQt import QtCore,QtGui,QtWidgets
-from leo.core.leoQt import phonon,QtSvg,QtWebKitWidgets
-# docutils = g.importExtension('docutils',pluginName='viewrendered.py',verbose=False)
+import leo.plugins.free_layout as free_layout
+from leo.core.leoQt import isQt5, QtCore, QtGui, QtWidgets
+from leo.core.leoQt import phonon, QtSvg, QtWebKitWidgets
 try:
     import docutils
     import docutils.core
@@ -217,8 +214,8 @@ if docutils:
 else:
     got_docutils = False
 if trace:
-    print('===== viewrendered.py: got_docutils: %s' % got_docutils)
-## markdown support, non-vital
+    print('viewrendered.py: got_docutils: %s' % got_docutils)
+# markdown support, non-vital
 try:
     from markdown import markdown
     got_markdown = True
@@ -226,11 +223,20 @@ except ImportError:
     got_markdown = False
 import os
 if trace:
-    print('===== viewrendered.py: got_markdown: %s' % got_markdown)
+    print('viewrendered.py: got_markdown: %s' % got_markdown)
+# nbformat (@jupyter) support, non-vital.
+try:
+    import nbformat
+    from nbconvert import HTMLExporter
+    # from traitlets.config import Config
+    from urllib.request import urlopen
+except ImportError:
+    nbformat = None
+import json
 #@-<< imports >>
-#@+<< define stylesheet >>
-#@+node:ekr.20110317024548.14377: ** << define stylesheet >>
-stickynote_stylesheet = """
+#@+<< define stylesheets >>
+#@+node:ekr.20110317024548.14377: ** << define stylesheets >>
+stickynote_stylesheet = '''
 /* The body pane */
 QPlainTextEdit {
     background-color: #fdf5f5; /* A kind of pink. */
@@ -238,48 +244,87 @@ QPlainTextEdit {
     selection-background-color: lightgrey;
     font-family: DejaVu Sans Mono;
     /* font-family: Courier New; */
-    font-size: 12px;
+    font-size: 18px;
     font-weight: normal; /* normal,bold,100,..,900 */
     font-style: normal; /* normal,italic,oblique */
 }
-"""
-#@-<< define stylesheet >>
+'''
+#@-<< define stylesheets >>
+#@+<< define html templates >>
+#@+node:ekr.20170324090828.1: ** << define html templates >>
+image_template = '''\
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+ "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head></head>
+<body bgcolor="#fffbdc">
+<img src="%s">
+</body>
+</html>
+'''
+
+# http://docs.mathjax.org/en/latest/start.html
+latex_template = '''\
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+ "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+    <script src='https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML'>
+    </script>
+</head>
+<body bgcolor="#fffbdc">
+%s
+</body>
+</html>
+'''
+#@-<< define html templates >>
 controllers = {}
     # Keys are c.hash(): values are PluginControllers
-
+layouts = {}
+    # Keys are c.hash(): values are tuples (layout_when_closed, layout_when_open)
 #@+others
 #@+node:ekr.20110320120020.14491: ** Top-level
 #@+node:tbrown.20100318101414.5994: *3* decorate_window
 def decorate_window(w):
-    
     w.setStyleSheet(stickynote_stylesheet)
-    w.setWindowIcon(QtGui.QIcon(g.app.leoDir + "/Icons/leoapp32.png"))    
+    w.setWindowIcon(QtGui.QIcon(g.app.leoDir + "/Icons/leoapp32.png"))
     w.resize(600, 300)
 #@+node:tbrown.20100318101414.5995: *3* init
 def init():
     '''Return True if the plugin has loaded successfully.'''
-    ok = bool(QtSvg and QtWebKitWidgets)
-    g.plugin_signon(__name__)
-    g.registerHandler('after-create-leo-frame', onCreate)
-    g.registerHandler('scrolledMessage', show_scrolled_message)
+    ok = bool(got_docutils and QtSvg and QtWebKitWidgets)
+    # 2017/08/18: register handlers only if all required imports
+    # were successful.
+    if ok:
+        g.plugin_signon(__name__)
+        g.registerHandler('after-create-leo-frame', onCreate)
+        g.registerHandler('close-frame', onClose)
+        g.registerHandler('scrolledMessage', show_scrolled_message)
     return ok
-#@+node:ekr.20110317024548.14376: *3* onCreate
+#@+node:ekr.20110317024548.14376: *3* onCreate (viewrendered.py)
 def onCreate(tag, keys):
-    
     c = keys.get('c')
     if c:
-        ViewRenderedProvider(c)
-    
-    return
+        provider = ViewRenderedProvider(c)
+        free_layout.register_provider(c, provider)
+#@+node:vitalije.20170712174157.1: *3* onClose
+def onClose(tag, keys):
+    c = keys.get('c')
+    h = c.hash()
+    vr = controllers.get(h)
+    if vr:
+        c.bodyWantsFocus()
+        del controllers[h]
+        vr.deactivate()
+        vr.deleteLater()
 #@+node:tbrown.20110629132207.8984: *3* show_scrolled_message
 def show_scrolled_message(tag, kw):
-
     if g.unitTesting:
         return # This just slows the unit tests.
     c = kw.get('c')
     flags = kw.get('flags') or 'rst'
     vr = viewrendered(event=kw)
-    title = kw.get('short_title','').strip()
+    title = kw.get('short_title', '').strip()
     vr.setWindowTitle(title)
     s = '\n'.join([
         title,
@@ -289,9 +334,15 @@ def show_scrolled_message(tag, kw):
     ])
     vr.update(
         tag='show-scrolled-message',
-        keywords={'c':c,'force':True,'s':s,'flags':flags},
+        keywords={'c': c, 'force': True, 's': s, 'flags': flags},
     )
     return True
+#@+node:vitalije.20170713082256.1: *3* split_last_sizes
+def split_last_sizes(sizes):
+    result = [2 * x for x in sizes[:-1]]
+    result.append(sizes[-1])
+    result.append(sizes[-1])
+    return result
 #@+node:ekr.20110320120020.14490: ** Commands
 #@+node:ekr.20131213163822.16471: *3* g.command('preview')
 @g.command('preview')
@@ -305,22 +356,32 @@ def viewrendered(event):
     c = event.get('c')
     if not c:
         return None
-    global controllers
+    global controllers, layouts
     vr = controllers.get(c.hash())
     if vr:
         if trace: g.trace('** controller exists: %s' % (vr))
+        vr.activate()
         vr.show()
+        vr.adjust_layout('open')
     else:
-        controllers[c.hash()] = vr = ViewRenderedController(c)
+        h = c.hash()
+        controllers[h] = vr = ViewRenderedController(c)
+        layouts[h] = c.cacher.db.get('viewrendered_default_layouts', (None, None))
         if trace: g.trace('** new controller: %s' % (vr))
-        if hasattr(c,'free_layout'):
-            vr._ns_id = '_leo_viewrendered'  # for free_layout load/save
-            splitter = c.free_layout.get_top_splitter()
+        if hasattr(c, 'free_layout'):
+            vr._ns_id = '_leo_viewrendered' # for free_layout load/save
+            vr.splitter = splitter = c.free_layout.get_top_splitter()
             # Careful: we may be unit testing.
             if splitter:
-                ok = splitter.add_adjacent(vr,'bodyFrame','right-of')
+                vr.store_layout('closed')
+                sizes = split_last_sizes(splitter.sizes())
+                ok = splitter.add_adjacent(vr, 'bodyFrame', 'right-of')
                 if not ok:
                     splitter.insert(0, vr)
+                else:
+                    if splitter.orientation() == QtCore.Qt.Horizontal:
+                        splitter.setSizes(sizes)
+                vr.adjust_layout('open')
         else:
             vr.setWindowTitle("Rendered View")
             vr.resize(600, 600)
@@ -338,7 +399,7 @@ def contract_rendering_pane(event):
     '''Contract the rendering pane.'''
     c = event.get('c')
     if c:
-        vr = c.frame.top.findChild(QtWidgets.QWidget,'viewrendered_pane')
+        vr = c.frame.top.findChild(QtWidgets.QWidget, 'viewrendered_pane')
         if vr:
             vr.contract()
         else:
@@ -347,12 +408,10 @@ def contract_rendering_pane(event):
 #@+node:ekr.20130413061407.10361: *3* g.command('vr-expand')
 @g.command('vr-expand')
 def expand_rendering_pane(event):
-    
     '''Expand the rendering pane.'''
-
     c = event.get('c')
     if c:
-        vr = c.frame.top.findChild(QtWidgets.QWidget,'viewrendered_pane')
+        vr = c.frame.top.findChild(QtWidgets.QWidget, 'viewrendered_pane')
         if not vr:
             vr = viewrendered(event)
         if vr:
@@ -361,29 +420,33 @@ def expand_rendering_pane(event):
 @g.command('vr-hide')
 def hide_rendering_pane(event):
     '''Close the rendering pane.'''
-    global controllers
+    global controllers, layouts
     c = event.get('c')
     if c:
         vr = c.frame.top.findChild(QtWidgets.QWidget, 'viewrendered_pane')
         if vr:
+            vr.store_layout('open')
             vr.deactivate()
             vr.deleteLater()
-            def at_idle(c=c):
+
+            def at_idle(c=c, _vr=vr):
+                _vr.adjust_layout('closed')
                 c.bodyWantsFocusNow()
-            QtCore.QTimer.singleShot(0,at_idle)
+
+            QtCore.QTimer.singleShot(0, at_idle)
             h = c.hash()
             c.bodyWantsFocus()
             if vr == controllers.get(h):
                 del controllers[h]
             else:
                 g.trace('Can not happen: no controller for %s' % (c))
-            
 # Compatibility
+
 close_rendering_pane = hide_rendering_pane
 #@+node:ekr.20110321072702.14507: *3* g.command('vr-lock')
 @g.command('vr-lock')
 def lock_rendering_pane(event):
-    '''Lock rendereing pane.'''
+    '''Lock the rendering pane.'''
     c = event.get('c')
     if c:
         vr = c.frame.top.findChild(QtWidgets.QWidget, 'viewrendered_pane')
@@ -395,7 +458,7 @@ def pause_play_movie(event):
     '''Pause or play a movie in the rendering pane.'''
     c = event.get('c')
     if c:
-        vr = c.frame.top.findChild(QtWidgets.QWidget,'viewrendered_pane')
+        vr = c.frame.top.findChild(QtWidgets.QWidget, 'viewrendered_pane')
         if not vr:
             vr = viewrendered(event)
         if vr and vr.vp:
@@ -407,9 +470,7 @@ def pause_play_movie(event):
 #@+node:ekr.20110317080650.14386: *3* g.command('vr-show')
 @g.command('vr-show')
 def show_rendering_pane(event):
-    
     '''Show the rendering pane.'''
-
     c = event.get('c')
     if c:
         vr = c.frame.top.findChild(QtWidgets.QWidget, 'viewrendered_pane')
@@ -420,12 +481,10 @@ def show_rendering_pane(event):
 #@+node:ekr.20131001100335.16606: *3* g.command('vr-toggle')
 @g.command('vr-toggle')
 def toggle_rendering_pane(event):
-    
     '''Toggle the rendering pane.'''
-
     c = event.get('c')
     if c:
-        vr = c.frame.top.findChild(QtWidgets.QWidget,'viewrendered_pane')
+        vr = c.frame.top.findChild(QtWidgets.QWidget, 'viewrendered_pane')
         if vr:
             hide_rendering_pane(event)
         else:
@@ -433,9 +492,7 @@ def toggle_rendering_pane(event):
 #@+node:ekr.20130412180825.10345: *3* g.command('vr-unlock')
 @g.command('vr-unlock')
 def unlock_rendering_pane(event):
-    
     '''Pause or play a movie in the rendering pane.'''
-
     c = event.get('c')
     if c:
         vr = c.frame.top.findChild(QtWidgets.QWidget, 'viewrendered_pane')
@@ -443,19 +500,46 @@ def unlock_rendering_pane(event):
             vr.unlock()
 #@+node:ekr.20110321151523.14464: *3* g.command('vr-update')
 @g.command('vr-update')
-def update_rendering_pane (event):
-    
+def update_rendering_pane(event):
     '''Update the rendering pane'''
-
     c = event.get('c')
     if c:
         vr = c.frame.top.findChild(QtWidgets.QWidget, 'viewrendered_pane')
         if not vr:
             vr = viewrendered(event)
         if vr:
-            vr.update(tag='view',keywords={'c':c,'force':True})
-#@+node:tbrown.20110629084915.35149: ** class ViewRenderedProvider
-class ViewRenderedProvider:
+            vr.update(tag='view', keywords={'c': c, 'force': True})
+#@+node:vitalije.20170712195827.1: *3* @g.command('vr-zoom')
+@g.command('vr-zoom')
+def zoom_rendering_pane(event):
+    c = event.get('c')
+    flc = c.free_layout
+    vr = controllers.get(c.hash())
+    if not vr: return
+    if vr.zoomed:
+        for ns in flc.get_top_splitter().top().self_and_descendants():
+            if hasattr(ns, '_unzoom'):
+                # this splitter could have been added since
+                ns.setSizes(ns._unzoom)
+    else:
+        parents = []
+        parent = vr
+        while parent:
+            parents.append(parent)
+            parent = parent.parent()
+        for ns in flc.get_top_splitter().top().self_and_descendants():
+            # FIXME - shouldn't be doing this across windows
+            ns._unzoom = ns.sizes()
+            for i in range(ns.count()):
+                w = ns.widget(i)
+                if w in parents:
+                    sizes = [0] * len(ns._unzoom)
+                    sizes[i] = sum(ns._unzoom)
+                    ns.setSizes(sizes)
+                    break
+    vr.zoomed = not vr.zoomed
+#@+node:tbrown.20110629084915.35149: ** class ViewRenderedProvider (vr)
+class ViewRenderedProvider(object):
     #@+others
     #@+node:tbrown.20110629084915.35154: *3* __init__
     def __init__(self, c):
@@ -467,629 +551,823 @@ class ViewRenderedProvider:
                 splitter.register_provider(self)
     #@+node:tbrown.20110629084915.35150: *3* ns_provides
     def ns_provides(self):
-        return[('Viewrendered', '_leo_viewrendered')]
+        return [('Viewrendered', '_leo_viewrendered')]
     #@+node:tbrown.20110629084915.35151: *3* ns_provide
     def ns_provide(self, id_):
-        
-        global controllers
-        
+        global controllers, layouts
         if id_ == '_leo_viewrendered':
             c = self.c
             vr = controllers.get(c.hash()) or ViewRenderedController(c)
+            h = c.hash()
+            controllers[h] = vr
+            if not layouts.get(h):
+                layouts[h] = c.cacher.db.get('viewrendered_default_layouts', (None, None))
             # return ViewRenderedController(self.c)
             return vr
     #@-others
 #@+node:ekr.20110317024548.14375: ** class ViewRenderedController (QWidget)
-class ViewRenderedController(QtWidgets.QWidget):
-    
-    '''A class to control rendering in a rendering pane.'''
-    
-    #@+others
-    #@+node:ekr.20110317080650.14380: *3* ctor & helpers
-    def __init__ (self, c, parent=None):
-        '''Ctor for ViewRenderedController class.'''
-        self.c = c
-        # Create the widget.
-        QtWidgets.QWidget.__init__(self, parent)
-        self.setObjectName('viewrendered_pane')
-        self.setLayout(QtWidgets.QVBoxLayout())
-        self.layout().setContentsMargins(0,0,0,0)
-        # Set the ivars.
-        self.active = False
-        self.badColors = []
-        self.delete_callback = None
-        self.gnx = None
-        self.graphics_class = QtWidgets.QGraphicsWidget
-        self.gs = None # For @graphics-script: a QGraphicsScene 
-        self.gv = None # For @graphics-script: a QGraphicsView
-        self.html_class = QtWebKitWidgets.QWebView
-        self.inited = False
-        self.length = 0 # The length of previous p.b.
-        self.locked = False
-        self.scrollbar_pos_dict = {} # Keys are vnodes, values are positions.
-        self.sizes = [] # Saved splitter sizes.
-        self.splitter_index = None # The index of the rendering pane in the splitter.
-        self.svg_class = QtSvg.QSvgWidget
-        self.text_class = QtWidgets.QTextBrowser
-        self.title = None
-        self.vp = None # The present video player.
-        self.w = None # The present widget in the rendering pane.
-        # User-options:
-        self.default_kind = c.config.getString('view-rendered-default-kind') or 'rst'
-        self.auto_create  = c.config.getBool('view-rendered-auto-create',False)
-        # self.auto_hide    = c.config.getBool('view-rendered-auto-hide',False)
-        self.background_color = c.config.getColor('rendering-pane-background-color') or 'white'
-        self.node_changed = True
-        # Init.
-        self.create_dispatch_dict()
-        self.activate()
-    #@+node:ekr.20110320120020.14478: *4* create_dispatch_dict
-    def create_dispatch_dict (self):
-        
-        pc = self
-        
-        pc.dispatch_dict = {
-            'big':          pc.update_rst,
-            'html':         pc.update_html,
-            'graphics-script':  pc.update_graphics_script,
-            'image':        pc.update_image,
-            'md':           pc.update_md,
-            'movie':        pc.update_movie,
-            'networkx':     pc.update_networkx,
-            'rst':          pc.update_rst,
-            'svg':          pc.update_svg,
-            'url':          pc.update_url,
-        }
-    #@+node:tbrown.20110621120042.22676: *3* closeEvent
-    def closeEvent(self, event):
-        '''Close the vr window.'''
-        self.deactivate()
-    #@+node:ekr.20130413061407.10363: *3* contract & expand
-    def contract(self):
-        self.change_size(-100)
+if QtWidgets: # NOQA
 
-    def expand(self):
-        self.change_size(100)
-        
-    def change_size(self,delta):
-        if hasattr(self.c,'free_layout'):
-            splitter = self.parent()
-            i = splitter.indexOf(self)
-            assert i > -1
-            sizes = splitter.sizes()
-            n = len(sizes)
-            for j in range(len(sizes)):
-                if j == i:
-                    sizes[j] = max(0,sizes[i]+delta)
-                else:
-                    sizes[j] = max(0,sizes[j]-int(delta/(n-1)))
-            splitter.setSizes(sizes)
-    #@+node:ekr.20110317080650.14381: *3* activate (creates idle-time hook)
-    def activate (self):
-        '''Activate the vr-window.'''
-        pc = self
-        if pc.active: return
-        if trace: g.trace('=====')
-        pc.inited = True
-        pc.active = True
-        g.registerHandler('select2',pc.update)
-        g.registerHandler('idle',pc.update)
-        # Enable the idle-time hook if it has not already been enabled.
-        if not g.app.idleTimeHook:
-            g.enableIdleTimeHook(idleTimeDelay=1000)
-    #@+node:ekr.20110317080650.14382: *3* deactivate
-    def deactivate (self):
-        '''Deactivate the vr window.'''
-        pc = self
-        # Never disable the idle-time hook: other plugins may need it.
-        if trace: g.trace('=====')
-        g.unregisterHandler('select2',pc.update)
-        g.unregisterHandler('idle',pc.update)
-        pc.active = False
-    #@+node:ekr.20110321072702.14508: *3* lock/unlock
-    def lock (self):
-        '''Lock the vr pane.'''
-        g.note('rendering pane locked')
-        self.locked = True
-        
-    def unlock (self):
-        '''Unlock the vr pane.'''
-        g.note('rendering pane unlocked')
-        self.locked = False
-    #@+node:ekr.20110319143920.14466: *3* underline
-    def underline (self,s):
-        '''Generate rST underlining for s.'''
-        ch = '#'
-        n = max(4,len(g.toEncodedString(s,reportErrors=False)))
-        # return '%s\n%s\n%s\n\n' % (ch*n,s,ch*n)
-        return '%s\n%s\n\n' % (s,ch*n)
-    #@+node:ekr.20101112195628.5426: *3* update & helpers
-    # Must have this signature: called by leoPlugins.callTagHandler.
+    class ViewRenderedController(QtWidgets.QWidget):
+        '''A class to control rendering in a rendering pane.'''
+        #@+others
+        #@+node:ekr.20110317080650.14380: *3* vr.ctor & helper
+        def __init__(self, c, parent=None):
+            '''Ctor for ViewRenderedController class.'''
+            self.c = c
+            # Create the widget.
+            QtWidgets.QWidget.__init__(self, parent)
+            self.setObjectName('viewrendered_pane')
+            self.setLayout(QtWidgets.QVBoxLayout())
+            self.layout().setContentsMargins(0, 0, 0, 0)
+            # Set the ivars.
+            self.active = False
+            self.badColors = []
+            self.delete_callback = None
+            self.gnx = None
+            self.graphics_class = QtWidgets.QGraphicsWidget
+            self.pyplot_canvas = None
+            self.pyplot_imported = False
+            self.gs = None # For @graphics-script: a QGraphicsScene
+            self.gv = None # For @graphics-script: a QGraphicsView
+            self.inited = False
+            self.length = 0 # The length of previous p.b.
+            self.locked = False
+            self.scrollbar_pos_dict = {} # Keys are vnodes, values are positions.
+            self.sizes = [] # Saved splitter sizes.
+            self.splitter = None
+            self.splitter_index = None # The index of the rendering pane in the splitter.
+            self.title = None
+            self.vp = None # The present video player.
+            self.w = None # The present widget in the rendering pane.
+            # User-options:
+            self.default_kind = c.config.getString('view-rendered-default-kind') or 'rst'
+            self.auto_create = c.config.getBool('view-rendered-auto-create', False)
+            # self.auto_hide    = c.config.getBool('view-rendered-auto-hide',False)
+            self.background_color = c.config.getColor('rendering-pane-background-color') or 'white'
+            self.node_changed = True
+            # Init.
+            self.create_dispatch_dict()
+            self.activate()
+            self.zoomed = False
+        #@+node:ekr.20110320120020.14478: *4* vr.create_dispatch_dict
+        def create_dispatch_dict(self):
+            pc = self
+            d = {
+                'big': pc.update_rst,
+                'html': pc.update_html,
+                'graphics-script': pc.update_graphics_script,
+                'image': pc.update_image,
+                'jupyter': pc.update_jupyter,
+                'latex': pc.update_latex,
+                'markdown': pc.update_md,
+                'md': pc.update_md,
+                'movie': pc.update_movie,
+                'networkx': pc.update_networkx,
+                'pyplot': pc.update_pyplot,
+                'rest': pc.update_rst,
+                'rst': pc.update_rst,
+                'svg': pc.update_svg,
+                # 'url': pc.update_url,
+                # 'xml': pc.update_xml,
+            }
+            pc.dispatch_dict = d
+            return d
+        #@+node:tbrown.20110621120042.22676: *3* vr.closeEvent
+        def closeEvent(self, event):
+            '''Close the vr window.'''
+            self.deactivate()
+        #@+node:ekr.20130413061407.10363: *3* vr.contract & expand
+        def contract(self):
+            self.change_size(-100)
 
-    def update(self,tag,keywords):
-        '''Update the vr pane.'''
-        pc = self
-        c,p = pc.c,pc.c.p
-        if pc.must_update(keywords):
-            if trace: g.trace('===== updating',keywords)
-            # Suppress updates until we change nodes.
-            pc.node_changed = pc.gnx != p.v.gnx
-            pc.gnx = p.v.gnx
-            pc.length = len(p.b) # not s
-            # Remove Leo directives.
-            s = keywords.get('s') if 's' in keywords else p.b
-            s = pc.remove_directives(s)
-            # Dispatch based on the computed kind.
-            kind = keywords.get('flags') if 'flags' in keywords else pc.get_kind(p)
-            f = pc.dispatch_dict.get(kind)
-            if f:
-                if trace: g.trace(f.__name__)
-            else:
-                g.trace('no handler for kind: %s' % kind)
-                f = pc.update_rst
-            f(s,keywords)
-        else:
-            # Save the scroll position.
-            w = pc.w
-            if w.__class__ == pc.text_class:
-                # 2011/07/30: The widge may no longer exist.
-                try:
-                    sb = w.verticalScrollBar()
-                except Exception:
-                    g.es_exception()
-                    pc.deactivate()
-                if sb:
-                    pc.scrollbar_pos_dict[p.v] = sb.sliderPosition()
-            # Will be called at idle time.
-            # if trace: g.trace('no update')
-    #@+node:ekr.20110320120020.14486: *4* embed_widget & helper
-    def embed_widget (self,w,delete_callback=None):
-        '''Embed widget w in the free_layout splitter.'''
-        pc = self ; c = pc.c #X ; splitter = pc.splitter
-        pc.w = w
-        layout = self.layout()
-        for i in range(layout.count()):
-            layout.removeItem(layout.itemAt(0))
-        self.layout().addWidget(w)
-        w.show()
-        # Special inits for text widgets...
-        if w.__class__ == pc.text_class:
-            text_name = 'body-text-renderer'
-            # pc.w = w = widget_class()
-            w.setObjectName(text_name)
-            pc.setBackgroundColor(pc.background_color,text_name,w)
-            w.setReadOnly(True)
-            # Create the standard Leo bindings.
-            wrapper_name = 'rendering-pane-wrapper'
-            wrapper = qt_text.QTextEditWrapper(w,wrapper_name,c)
-            w.leo_wrapper = wrapper
-            c.k.completeAllBindingsForWidget(wrapper)
-            w.setWordWrapMode(QtGui.QTextOption.WrapAtWordBoundaryOrAnywhere)
-    #@+node:ekr.20110321072702.14510: *5* setBackgroundColor
-    def setBackgroundColor (self,colorName,name,w):
-        '''Set the background color of the vr pane.'''
-        pc = self
-        if not colorName: return
-        styleSheet = 'QTextEdit#%s { background-color: %s; }' % (name,colorName)
-        # g.trace(name,colorName)
-        if QtGui.QColor(colorName).isValid():
-            w.setStyleSheet(styleSheet)
-        elif colorName not in pc.badColors:
-            pc.badColors.append(colorName)
-            g.warning('invalid body background color: %s' % (colorName))
-    #@+node:ekr.20110320120020.14476: *4* must_update
-    def must_update (self,keywords):
-        
-        '''Return True if we must update the rendering pane.'''
-        pc = self
-        c,p = pc.c,pc.c.p
-        if g.unitTesting:
-            return False
-        if keywords.get('force'):
+        def expand(self):
+            self.change_size(100)
+
+        def change_size(self, delta):
+            if hasattr(self.c, 'free_layout'):
+                splitter = self.parent()
+                i = splitter.indexOf(self)
+                assert i > -1
+                sizes = splitter.sizes()
+                n = len(sizes)
+                for j, size in enumerate(sizes):
+                    if j == i:
+                        sizes[j] = max(0, size + delta)
+                    else:
+                        sizes[j] = max(0, size - int(delta / (n - 1)))
+                splitter.setSizes(sizes)
+        #@+node:ekr.20110317080650.14381: *3* vr.activate
+        def activate(self):
+            '''Activate the vr-window.'''
+            pc = self
+            if pc.active: return
+            if trace: g.trace('=====')
+            pc.inited = True
             pc.active = True
-            if trace: g.trace('force: activating')
-            return True
-        if c != keywords.get('c') or not pc.active:
-            if trace: g.trace('not active')
-            return False
-        if pc.locked:
-            if trace: g.trace('locked')
-            return False
-        if pc.gnx != p.v.gnx:
-            if trace: g.trace('changed node')
-            return True
-        if len(p.b) != pc.length:
-            if trace: g.trace('text changed')
-            return True
-        # This will be called at idle time.
-        # if trace: g.trace('no change')
-        return False
-    #@+node:ekr.20110321151523.14463: *4* update_graphics_script
-    def update_graphics_script (self,s,keywords):
-        '''Update the graphics script in the vr pane.'''
-        pc = self ; c = pc.c
-        force = keywords.get('force')
-        if pc.gs and not force:
-            return
-        if not pc.gs:
-            splitter = c.free_layout.get_top_splitter()
-            # Careful: we may be unit testing.
-            if not splitter:
-                g.trace('no splitter')
-                return
-            # Create the widgets.
-            pc.gs = QtWidgets.QGraphicsScene(splitter)
-            pc.gv = QtWidgets.QGraphicsView(pc.gs)
-            w = pc.gv.viewport() # A QWidget
-            # Embed the widgets.
-            def delete_callback():
-                for w in (pc.gs,pc.gv):
-                    w.deleteLater()
-                pc.gs = pc.gv = None
-            pc.embed_widget(w,delete_callback=delete_callback)
-        c.executeScript(
-            script=s,
-            namespace={'gs':pc.gs,'gv':pc.gv})
-    #@+node:ekr.20110321005148.14534: *4* update_html
-    def update_html (self,s,keywords):
-        '''Update html in the vr pane.'''
-        pc = self
-        if pc.must_change_widget(pc.html_class):
-            w = pc.html_class()
-            pc.embed_widget(w)
-            assert (w == pc.w)
-        else:
-            w = pc.w
-        pc.show()
-        w.setHtml(s)
-    #@+node:ekr.20110320120020.14482: *4* update_image
-    def update_image (self,s,keywords):
-        '''Update an image in the vr pane.'''
-        pc = self
-        lines = g.splitLines(s) or []
-        g.trace(lines)
-        fn = lines and lines[0].strip()
-        w = pc.ensure_text_widget()
-        ok,path = pc.get_fn(fn,'@image')
-        if not ok:
-            w.setPlainText('@image: file not found: %s' % (fn))
-            return
-        path = fn.replace('\\','/')
-        template = '''\
-    <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-    <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-    <head></head>
-    <body bgcolor="#fffbdc">
-    <img src="%s">
-    </body>
-    </html>
-    ''' % (path)
+            g.registerHandler('select2', pc.update)
+            g.registerHandler('idle', pc.update)
+        #@+node:ekr.20110317080650.14382: *3* vr.deactivate
+        def deactivate(self):
+            '''Deactivate the vr window.'''
+            pc = self
+            # Never disable the idle-time hook: other plugins may need it.
+            if trace: g.trace('=====')
+            g.unregisterHandler('select2', pc.update)
+            g.unregisterHandler('idle', pc.update)
+            pc.active = False
+        #@+node:ekr.20110321072702.14508: *3* vr.lock/unlock
+        def lock(self):
+            '''Lock the vr pane.'''
+            g.note('rendering pane locked')
+            self.locked = True
 
-        # Only works in Python 3.x.
-        template = g.adjustTripleString(template,pc.c.tab_width).strip() # Sensitive to leading blank lines.
-        # template = g.toUnicode(template)
-        pc.show()
-        w.setReadOnly(False)
-        w.setHtml(template)
-        w.setReadOnly(True)
-        
-    #@+node:peckj.20130207132858.3671: *4* update_md
-    def update_md (self,s,keywords):
-        '''Update markdown text in the vr pane.'''
-        pc = self ; c = pc.c ;  p = c.p
-        s = s.strip().strip('"""').strip("'''").strip()
-        isHtml = s.startswith('<') and not s.startswith('<<')
-        if trace: g.trace('isHtml',isHtml)
-        # Do this regardless of whether we show the widget or not.
-        w = pc.ensure_text_widget()
-        assert pc.w
-        if s:
-            pc.show()    
-        if not got_markdown:
-            isHtml = True
-            s = '<pre>\n%s</pre>' % s
-        if not isHtml:
-            # Not html: convert to html.
-            path = g.scanAllAtPathDirectives(c,p) or c.getNodePath(p)
+        def unlock(self):
+            '''Unlock the vr pane.'''
+            g.note('rendering pane unlocked')
+            self.locked = False
+        #@+node:ekr.20160921071239.1: *3* vr.set_html
+        def set_html(self, s, w):
+            '''Set text in w to s, preserving scroll position.'''
+            pc = self
+            p = pc.c.p
+            sb = w.verticalScrollBar()
+            if sb:
+                d = pc.scrollbar_pos_dict
+                if pc.node_changed:
+                    # Set the scrollbar.
+                    pos = d.get(p.v, sb.sliderPosition())
+                    sb.setSliderPosition(pos)
+                else:
+                    # Save the scrollbars
+                    d[p.v] = pos = sb.sliderPosition()
+            w.setHtml(s)
+            if sb:
+                # Restore the scrollbars
+                assert pos is not None
+                sb.setSliderPosition(pos)
+        #@+node:ekr.20110319143920.14466: *3* vr.underline
+        def underline(self, s):
+            '''Generate rST underlining for s.'''
+            ch = '#'
+            n = max(4, len(g.toEncodedString(s, reportErrors=False)))
+            # return '%s\n%s\n%s\n\n' % (ch*n,s,ch*n)
+            return '%s\n%s\n\n' % (s, ch * n)
+        #@+node:ekr.20101112195628.5426: *3* vr.update & helpers
+        # Must have this signature: called by leoPlugins.callTagHandler.
+
+        def update(self, tag, keywords):
+            '''Update the vr pane.'''
+            verbose = True
+            pc = self
+            p = pc.c.p
+            if pc.must_update(keywords):
+                if trace and verbose:
+                    g.trace('===== updating')
+                    g.printDict(keywords)
+                # Suppress updates until we change nodes.
+                pc.node_changed = pc.gnx != p.v.gnx
+                pc.gnx = p.v.gnx
+                pc.length = len(p.b) # not s
+                # Remove Leo directives.
+                s = keywords.get('s') if 's' in keywords else p.b
+                s = pc.remove_directives(s)
+                # Dispatch based on the computed kind.
+                kind = keywords.get('flags') if 'flags' in keywords else pc.get_kind(p)
+                f = pc.dispatch_dict.get(kind)
+                if f:
+                    if trace and verbose: g.trace(p.h, f.__name__)
+                else:
+                    g.trace('no handler for kind: %s' % kind)
+                    f = pc.update_rst
+                f(s, keywords)
+            else:
+                # Save the scroll position.
+                w = pc.w
+                if w.__class__ == QtWidgets.QTextBrowser:
+                    # 2011/07/30: The widget may no longer exist.
+                    try:
+                        sb = w.verticalScrollBar()
+                        pc.scrollbar_pos_dict[p.v] = sb.sliderPosition()
+                    except Exception:
+                        g.es_exception()
+                        pc.deactivate()
+                # Will be called at idle time.
+                # if trace: g.trace('no update')
+        #@+node:ekr.20110320120020.14486: *4* vr.embed_widget & helper
+        def embed_widget(self, w, delete_callback=None):
+            '''Embed widget w in the free_layout splitter.'''
+            pc = self; c = pc.c #X ; splitter = pc.splitter
+            pc.w = w
+            layout = self.layout()
+            for i in range(layout.count()):
+                layout.removeItem(layout.itemAt(0))
+            self.layout().addWidget(w)
+            w.show()
+            # Special inits for text widgets...
+            if w.__class__ == QtWidgets.QTextBrowser:
+                text_name = 'body-text-renderer'
+                w.setObjectName(text_name)
+                pc.setBackgroundColor(pc.background_color, text_name, w)
+                w.setReadOnly(True)
+                # Create the standard Leo bindings.
+                wrapper_name = 'rendering-pane-wrapper'
+                wrapper = qt_text.QTextEditWrapper(w, wrapper_name, c)
+                w.leo_wrapper = wrapper
+                c.k.completeAllBindingsForWidget(wrapper)
+                w.setWordWrapMode(QtGui.QTextOption.WrapAtWordBoundaryOrAnywhere)
+        #@+node:ekr.20110321072702.14510: *5* vr.setBackgroundColor
+        def setBackgroundColor(self, colorName, name, w):
+            '''Set the background color of the vr pane.'''
+            pc = self
+            if not colorName: return
+            styleSheet = 'QTextEdit#%s { background-color: %s; }' % (name, colorName)
+            # g.trace(name,colorName)
+            if QtGui.QColor(colorName).isValid():
+                w.setStyleSheet(styleSheet)
+            elif colorName not in pc.badColors:
+                pc.badColors.append(colorName)
+                g.warning('invalid body background color: %s' % (colorName))
+        #@+node:ekr.20110320120020.14476: *4* vr.must_update
+        def must_update(self, keywords):
+            '''Return True if we must update the rendering pane.'''
+            pc = self
+            c, p = pc.c, pc.c.p
+            if g.unitTesting:
+                return False
+            if keywords.get('force'):
+                pc.active = True
+                if trace: g.trace('force: activating', p.h)
+                return True
+            if c != keywords.get('c') or not pc.active:
+                if trace: g.trace('not active', p.h)
+                return False
+            if pc.locked:
+                if trace: g.trace('locked', p.h)
+                return False
+            if pc.gnx != p.v.gnx:
+                if trace: g.trace('changed node', p.h)
+                return True
+            if len(p.b) != pc.length:
+                if pc.get_kind(p) in ('html', 'pyplot'):
+                    if trace: g.trace('html or pyplot text changed', p.h)
+                    pc.length = len(p.b)
+                    return False # Only update explicitly.
+                else:
+                    if trace: g.trace('text changed', p.h)
+                    return True
+            # This will be called at idle time.
+            # if trace: g.trace('no change')
+            return False
+        #@+node:ekr.20110321151523.14463: *4* vr.update_graphics_script
+        def update_graphics_script(self, s, keywords):
+            '''Update the graphics script in the vr pane.'''
+            pc = self; c = pc.c
+            force = keywords.get('force')
+            if pc.gs and not force:
+                return
+            if not pc.gs:
+                splitter = c.free_layout.get_top_splitter()
+                # Careful: we may be unit testing.
+                if not splitter:
+                    g.trace('no splitter')
+                    return
+                # Create the widgets.
+                pc.gs = QtWidgets.QGraphicsScene(splitter)
+                pc.gv = QtWidgets.QGraphicsView(pc.gs)
+                w = pc.gv.viewport() # A QWidget
+                # Embed the widgets.
+
+                def delete_callback():
+                    for w in (pc.gs, pc.gv):
+                        w.deleteLater()
+                    pc.gs = pc.gv = None
+
+                pc.embed_widget(w, delete_callback=delete_callback)
+            c.executeScript(
+                script=s,
+                namespace={'gs': pc.gs, 'gv': pc.gv})
+        #@+node:ekr.20110321005148.14534: *4* vr.update_html
+        update_html_count = 0
+
+        def update_html(self, s, keywords):
+            '''Update html in the vr pane.'''
+            pc = self
+            c = pc.c
+            if pc.must_change_widget(QtWebKitWidgets.QWebView):
+                # g.trace('===== instantiating QWebView')
+                w = QtWebKitWidgets.QWebView()
+                n = c.config.getInt('qweb_view_font_size')
+                if n:
+                    settings = w.settings()
+                    settings.setFontSize(settings.DefaultFontSize, n)
+                pc.embed_widget(w)
+                assert(w == pc.w)
+            else:
+                w = pc.w
+            if isQt5:
+                w.hide() # This forces a proper update.
+            w.setHtml(s)
+            w.show()
+            c.bodyWantsFocusNow()
+        #@+node:ekr.20110320120020.14482: *4* vr.update_image
+        def update_image(self, s, keywords):
+            '''Update an image in the vr pane.'''
+            pc = self
+            if not s.strip():
+                return
+            lines = g.splitLines(s) or []
+            fn = lines and lines[0].strip()
+            if not fn:
+                return
+            w = pc.ensure_text_widget()
+            ok, path = pc.get_fn(fn, '@image')
+            if not ok:
+                w.setPlainText('@image: file not found: %s' % (path))
+                return
+            path = path.replace('\\', '/')
+            template = image_template % (path)
+            # Only works in Python 3.x.
+            template = g.adjustTripleString(template, pc.c.tab_width).strip()
+                # Sensitive to leading blank lines.
+            # template = g.toUnicode(template)
+            pc.show()
+            w.setReadOnly(False)
+            w.setHtml(template)
+            w.setReadOnly(True)
+        #@+node:ekr.20170105124347.1: *4* vr.update_jupyter
+        update_jupyter_count = 0
+
+        def update_jupyter(self, s, keywords):
+            '''Update @jupyter node in the vr pane.'''
+            pc = self
+            c = pc.c
+            if pc.must_change_widget(QtWebKitWidgets.QWebView):
+                # g.trace('===== instantiating QWebView')
+                w = QtWebKitWidgets.QWebView()
+                n = c.config.getInt('qweb_view_font_size')
+                if n:
+                    settings = w.settings()
+                    settings.setFontSize(settings.DefaultFontSize, n)
+                pc.embed_widget(w)
+                assert(w == pc.w)
+            else:
+                w = pc.w
+            url = g.getUrlFromNode(c.p)
+            if url and nbformat:
+                s = urlopen(url).read().decode()
+                try:
+                    nb = nbformat.reads(s, as_version=4)
+                    e = HTMLExporter()
+                    (s, junk_resources) = e.from_notebook_node(nb)
+                except nbformat.reader.NotJSONError:
+                    # Assume the result is html.
+                    pass
+            elif url:
+                s = 'can not import nbformt: %r' % url
+            else:
+                s = g.u('')
+            if isQt5:
+                w.hide() # This forces a proper update.
+            w.setHtml(s)
+            w.show()
+            c.bodyWantsFocusNow()
+        #@+node:ekr.20170324064811.1: *4* vr.update_latex & helper
+        def update_latex(self, s, keywords):
+            '''Update latex in the vr pane.'''
+            import sys
+            pc = self
+            c = pc.c
+            if g.isPython3 and sys.platform.startswith('win'):
+                g.es_print('latex rendering not ready for Python 3')
+                w = pc.ensure_text_widget()
+                pc.show()
+                w.setPlainText(s)
+                c.bodyWantsFocusNow()
+            else:
+                if pc.must_change_widget(QtWebKitWidgets.QWebView):
+                    w = QtWebKitWidgets.QWebView()
+                    n = c.config.getInt('qweb_view_font_size')
+                    if n:
+                        settings = w.settings()
+                        settings.setFontSize(settings.DefaultFontSize, n)
+                    pc.embed_widget(w)
+                    assert(w == pc.w)
+                else:
+                    w = pc.w
+                w.hide() # This forces a proper update.
+                s = self.create_latex_html(s)
+                w.setHtml(s)
+                w.show()
+                c.bodyWantsFocusNow()
+
+        #@+node:ekr.20170324085132.1: *5* vr.create_latex_html
+        def create_latex_html(self, s):
+            '''Create an html page embedding the latex code s.'''
+            trace = False and not g.unitTesting
+            c = self.c
+            # pylint: disable=deprecated-method
+            try:
+                import html
+                escape = html.escape
+            except AttributeError:
+                import cgi
+                escape = cgi.escape
+            html_s = escape(s)
+            template = latex_template % (html_s)
+            template = g.adjustTripleString(template, c.tab_width).strip()
+            if trace:
+                g.trace()
+                g.printList(g.splitLines(template))
+            return template
+        #@+node:peckj.20130207132858.3671: *4* vr.update_md & helper
+        def update_md(self, s, keywords):
+            '''Update markdown text in the vr pane.'''
+            pc = self; c = pc.c; p = c.p
+            s = s.strip().strip('"""').strip("'''").strip()
+            isHtml = s.startswith('<') and not s.startswith('<<')
+            if trace: g.trace('isHtml:', isHtml, p.h)
+            # Do this regardless of whether we show the widget or not.
+            w = pc.ensure_text_widget()
+            assert pc.w
+            if s:
+                pc.show()
+            if got_markdown:
+                force = keywords.get('force')
+                colorizer = c.frame.body.colorizer
+                language = colorizer.scanLanguageDirectives(p)
+                if trace: g.trace(language)
+                if force or language in ('rst', 'rest', 'markdown', 'md'):
+                    if not isHtml:
+                        s = self.convert_to_markdown(s)
+                self.set_html(s,w)
+            else:
+                g.trace('markdown not available: using rst')
+                self.update_rst(s,keywords)
+        #@+node:ekr.20160921134552.1: *5* convert_to_markdown
+        def convert_to_markdown(self, s):
+            '''Convert s to html using the markdown processor.'''
+            pc = self
+            c, p = pc.c, pc.c.p
+            path = g.scanAllAtPathDirectives(c, p) or c.getNodePath(p)
             if not os.path.isdir(path):
                 path = os.path.dirname(path)
             if os.path.isdir(path):
                 os.chdir(path)
             try:
-                msg = '' # The error message from docutils.
                 if pc.title:
                     s = pc.underline(pc.title) + s
                     pc.title = None
                 mdext = c.config.getString('view-rendered-md-extensions') or 'extra'
                 mdext = [x.strip() for x in mdext.split(',')]
                 s = markdown(s, mdext)
-                s = g.toUnicode(s) # 2011/03/15
-                show = True
+                s = g.toUnicode(s)
             except SystemMessage as sm:
-                # g.trace(sm,sm.args)
                 msg = sm.args[0]
                 if 'SEVERE' in msg or 'FATAL' in msg:
-                    s = 'MD error:\n%s\n\n%s' % (msg,s)
-        sb = w.verticalScrollBar()
-        if sb:
-            d = pc.scrollbar_pos_dict
-            if pc.node_changed:
-                # Set the scrollbar.
-                pos = d.get(p.v,sb.sliderPosition())
-                sb.setSliderPosition(pos)
-            else:
-                # Save the scrollbars
-                d[p.v] = pos = sb.sliderPosition()
-        if pc.default_kind in ('big','rst','html', 'md'):
-            w.setHtml(s)
-            if pc.default_kind == 'big':
-                w.zoomIn(4) # Doesn't work.
-        else:
-            w.setPlainText(s) 
-        if sb and pos:
-            # Restore the scrollbars
-            sb.setSliderPosition(pos)
-    #@+node:ekr.20110320120020.14481: *4* update_movie
-    def update_movie (self,s,keywords):
-        '''Update a movie in the vr pane.'''
-        # pylint: disable=maybe-no-member
-            # 'PyQt4.phonon' has no 'VideoPlayer' member
-            # 'PyQt4.phonon' has no 'VideoCategory' member
-            # 'PyQt4.phonon' has no 'MediaSource' member
-        pc = self
-        ok,path = pc.get_fn(s,'@movie')
-        if not ok:
-            w = pc.ensure_text_widget()
-            w.setPlainText('Movie\n\nfile not found: %s' % (path))
-            return
-        if not phonon:
-            w = pc.ensure_text_widget()
-            w.setPlainText('Movie\n\nno movie player: %s' % (path))
-            return
-        if pc.vp:
-            vp = pc.vp
-            pc.vp.stop()
-            pc.vp.deleteLater()
-        # Create a fresh player.
-        pc.vp = vp = phonon.VideoPlayer(phonon.VideoCategory)
-        vw = vp.videoWidget()
-        vw.setObjectName('video-renderer')
-        # Embed the widgets
-        def delete_callback():
+                    s = 'MD error:\n%s\n\n%s' % (msg, s)
+            return s
+        #@+node:ekr.20110320120020.14481: *4* vr.update_movie
+        movie_warning = False
+
+        def update_movie(self, s, keywords):
+            '''Update a movie in the vr pane.'''
+            # pylint: disable=maybe-no-member
+                # 'PyQt4.phonon' has no 'VideoPlayer' member
+                # 'PyQt4.phonon' has no 'VideoCategory' member
+                # 'PyQt4.phonon' has no 'MediaSource' member
+            pc = self
+            ok, path = pc.get_fn(s, '@movie')
+            if not ok:
+                w = pc.ensure_text_widget()
+                w.setPlainText('Not found: %s' % (path))
+                return
+            if not phonon:
+                if not self.movie_warning:
+                    self.movie_warning = True
+                    g.es_print('No phonon movie player')
+                w = pc.ensure_text_widget()
+                w.setPlainText('')
+                return
             if pc.vp:
+                vp = pc.vp
                 pc.vp.stop()
                 pc.vp.deleteLater()
-                pc.vp = None
-        pc.embed_widget(vp,delete_callback=delete_callback)
-        pc.show()
-        vp = pc.vp
-        vp.load(phonon.MediaSource(path))
-        vp.play()
-    #@+node:ekr.20110320120020.14484: *4* update_networkx
-    def update_networkx (self,s,keywords):
-        '''Update a networkx graphic in the vr pane.'''
-        pc = self
-        w = pc.ensure_text_widget()
-        w.setPlainText('') # 'Networkx: len: %s' % (len(s)))
-        pc.show()
-    #@+node:ekr.20110320120020.14477: *4* update_rst
-    def update_rst (self,s,keywords):
-        '''Update rst in the vr pane.'''
-        pc = self
-        c = pc.c
-        p = c.p
-        s = s.strip().strip('"""').strip("'''").strip()
-        isHtml = s.startswith('<') and not s.startswith('<<')
-        if trace: g.trace('isHtml',isHtml,p.h)
-        # Do this regardless of whether we show the widget or not.
-        w = pc.ensure_text_widget()
-        assert pc.w
-        if s:
+            # Create a fresh player.
+            pc.vp = vp = phonon.VideoPlayer(phonon.VideoCategory)
+            vw = vp.videoWidget()
+            vw.setObjectName('video-renderer')
+            # Embed the widgets
+
+            def delete_callback():
+                if pc.vp:
+                    pc.vp.stop()
+                    pc.vp.deleteLater()
+                    pc.vp = None
+
+            g.es_print('playing', path)
+            pc.embed_widget(vp, delete_callback=delete_callback)
             pc.show()
-        if not got_docutils:
-            isHtml = True
-            s = '<pre>\n%s</pre>' % s
-        if not isHtml:
-            # Not html: convert to html.
-            path = g.scanAllAtPathDirectives(c,p) or c.getNodePath(p)
+            vp = pc.vp
+            vp.load(phonon.MediaSource(path))
+            vp.play()
+        #@+node:ekr.20110320120020.14484: *4* vr.update_networkx
+        def update_networkx(self, s, keywords):
+            '''Update a networkx graphic in the vr pane.'''
+            pc = self
+            w = pc.ensure_text_widget()
+            w.setPlainText('') # 'Networkx: len: %s' % (len(s)))
+            pc.show()
+        #@+node:ekr.20160928023915.1: *4* vr.update_pyplot
+        def update_pyplot(self, s, keywords):
+            '''Get the pyplot script at c.p.b and show it.'''
+            c = self.c
+            # To do: show plot in the VR area.
+            if not self.pyplot_imported:
+                self.pyplot_imported = True
+                backend = g.os_path_finalize_join(
+                    g.app.loadDir, '..', 'plugins', 'pyplot_backend.py')
+                if g.os_path_exists(backend):
+                    try:
+                        # The order of these statements is important...
+                        import matplotlib
+                        matplotlib.use('module://leo.plugins.pyplot_backend')
+                        if trace: g.trace('===== LOADED: pyplot.backend')
+                    except ImportError:
+                        g.trace('===== FAIL: pyplot.backend')
+                else:
+                    g.trace('===== MISSING: pyplot.backend')
+            try:
+                import matplotlib # Make *sure* this is imported.
+                import matplotlib.pyplot as plt
+                import numpy as np
+                import matplotlib.animation as animation
+                plt.ion() # Automatically set interactive mode.
+                namespace = {
+                    'animation': animation,
+                    'matplotlib': matplotlib,
+                    'numpy': np, 'np': np,
+                    'pyplot': plt, 'plt': plt,
+                }
+            except ImportError:
+                g.es_print('matplotlib imports failed')
+                namespace = {}
+            self.embed_pyplot_widget()
+            c.executeScript(
+                event=None,
+                args=None, p=None,
+                script=None,
+                useSelectedText=False,
+                define_g=True,
+                define_name='__main__',
+                silent=False,
+                namespace=namespace,
+                raiseFlag=False)
+        #@+node:ekr.20160928030257.1: *5* vr.embed_pyplot_widget (not ready yet)
+        def embed_pyplot_widget(self):
+
+            pc = self
+            c = pc.c
+            # Careful: we may be unit testing.
+            splitter = c.free_layout.get_top_splitter()
+            if not splitter:
+                if trace: g.trace('no splitter')
+                return
+            if not pc.pyplot_canvas:
+
+                # TODO Create the widgets.
+                w = None
+                ### Ref
+                # pc.gs = QtWidgets.QGraphicsScene(splitter)
+                # pc.gv = QtWidgets.QGraphicsView(pc.gs)
+                # w = pc.gv.viewport() # A QWidget
+                # Embed the widgets.
+                pc.pyplot_canvas = w
+
+                def delete_callback():
+                    pc.pyplot_canvas.deleteLater()
+                    pc.pyplot_canvas = None
+
+            if pc.pyplot_canvas:
+                pc.embed_widget(w, delete_callback=delete_callback)
+        #@+node:ekr.20110320120020.14477: *4* vr.update_rst & helpers
+        def update_rst(self, s, keywords):
+            '''Update rst in the vr pane.'''
+            pc = self
+            s = s.strip().strip('"""').strip("'''").strip()
+            isHtml = s.startswith('<') and not s.startswith('<<')
+            # Do this regardless of whether we show the widget or not.
+            w = pc.ensure_text_widget()
+            assert pc.w
+            if s:
+                pc.show()
+            if got_docutils:
+                # Fix #420: viewrendered does not render some nodes
+                # Users (rightly) complained, so don't be clever here:
+                    # c, p = pc.c, pc.c.p
+                    # force = keywords.get('force')
+                    # colorizer = c.frame.body.colorizer
+                    # language = colorizer.scanLanguageDirectives(p)
+                    # force or language in ('rst', 'rest', 'markdown', 'md'):
+                if not isHtml:
+                    s = pc.convert_to_html(s)
+                pc.set_html(s, w)
+            else:
+                w.setPlainText(s)
+        #@+node:ekr.20160920221324.1: *5* vr.convert_to_html
+        def convert_to_html(self, s):
+            '''Convert s to html using docutils.'''
+            c, p = self.c, self.c.p
+            # Update the current path.
+            path = g.scanAllAtPathDirectives(c, p) or c.getNodePath(p)
             if not os.path.isdir(path):
                 path = os.path.dirname(path)
             if os.path.isdir(path):
                 os.chdir(path)
             try:
-                msg = '' # The error message from docutils.
-                if pc.title:
-                    s = pc.underline(pc.title) + s
-                    pc.title = None
+                if self.title:
+                    s = self.underline(self.title) + s
+                    self.title = None
                 # Call docutils to get the string.
-                s = publish_string(s,writer_name='html')
-                if trace: g.trace('after docutils',len(s))
-                s = g.toUnicode(s) # 2011/03/15
-                show = True
+                s = publish_string(s, writer_name='html')
+                s = g.toUnicode(s)
             except SystemMessage as sm:
-                # g.trace(sm,sm.args)
                 msg = sm.args[0]
                 if 'SEVERE' in msg or 'FATAL' in msg:
-                    s = 'RST error:\n%s\n\n%s' % (msg,s)
-        sb = w.verticalScrollBar()
-        if sb:
-            d = pc.scrollbar_pos_dict
-            if pc.node_changed:
-                # Set the scrollbar.
-                pos = d.get(p.v,sb.sliderPosition())
-                sb.setSliderPosition(pos)
+                    s = 'RST error:\n%s\n\n%s' % (msg, s)
+            return s
+        #@+node:ekr.20110320120020.14479: *4* vr.update_svg
+        # http://doc.trolltech.com/4.4/qtsvg.html
+        # http://doc.trolltech.com/4.4/painting-svgviewer.html
+
+        def update_svg(self, s, keywords):
+            pc = self
+            if pc.must_change_widget(QtSvg.QSvgWidget):
+                w = QtSvg.QSvgWidget()
+                pc.embed_widget(w)
+                assert(w == pc.w)
             else:
-                # Save the scrollbars
-                d[p.v] = pos = sb.sliderPosition()
-        if pc.default_kind in ('big','rst','html', 'md'):
-            w.setHtml(s)
-            if pc.default_kind == 'big':
-                w.zoomIn(4) # Doesn't work.
-        else:
-            w.setPlainText(s)
-        if sb and pos:
-            # Restore the scrollbars
-            sb.setSliderPosition(pos)
-    #@+node:ekr.20110320120020.14479: *4* update_svg
-    # http://doc.trolltech.com/4.4/qtsvg.html 
-    # http://doc.trolltech.com/4.4/painting-svgviewer.html
-
-    def update_svg (self,s,keywords):
-
-        pc = self
-        
-        if pc.must_change_widget(pc.svg_class):
-            w = pc.svg_class()
-            pc.embed_widget(w)
-            assert (w == pc.w)
-        else:
-            w = pc.w
-        
-        if s.strip().startswith('<'):
-            # Assume it is the svg (xml) source.
-            s = g.adjustTripleString(s,pc.c.tab_width).strip() # Sensitive to leading blank lines.
-            s = g.toEncodedString(s)
-            pc.show()
-            w.load(QtCore.QByteArray(s))
-            w.show()
-        else:
-            # Get a filename from the headline or body text.
-            ok,path = pc.get_fn(s,'@svg')
-            if ok:
+                w = pc.w
+            if s.strip().startswith('<'):
+                # Assume it is the svg (xml) source.
+                s = g.adjustTripleString(s, pc.c.tab_width).strip() # Sensitive to leading blank lines.
+                s = g.toEncodedString(s)
                 pc.show()
-                w.load(path)
+                w.load(QtCore.QByteArray(s))
                 w.show()
-    #@+node:ekr.20110321005148.14537: *4* update_url
-    def update_url (self,s,keywords):
-        
-        pc = self
-        
-        w = pc.ensure_text_widget()
-        pc.show()
-        
-        if 1:
-            w.setPlainText('')
-        else:
-            url = pc.get_url(s,'@url')
-            
-            if url:
-                w.setPlainText('@url %s' % url)
             else:
-                w.setPlainText('@url: no url given')
-            
-        # w.setReadOnly(False)
-        # w.setHtml(s)
-        # w.setReadOnly(True)
-    #@+node:ekr.20110322031455.5765: *4* utils for update helpers...
-    #@+node:ekr.20110322031455.5764: *5* ensure_text_widget
-    def ensure_text_widget (self):
-        '''Swap a text widget into the rendering pane if necessary.'''
-        pc = self
-        if pc.must_change_widget(pc.text_class):
-            w = pc.text_class()
-            
-            def mouseReleaseHelper(w,event):
-                # Fix bug 1158269: viewrendered pane goes blank when url clicked.
-                # No need to call the base mouseReleaseEvent method.
-                event2 = {'c':self.c,'w':w.leo_wrapper}
-                g.openUrlOnClick(event2)
-                # if QtCore.Qt.ControlModifier & event.modifiers():
-                    # event2 = {'c':self.c,'w':w.leo_wrapper}
-                    # g.openUrlOnClick(event2)
-                # else:
-                    # This call caused the text to disappear.
-                    # QtWidgets.QTextBrowser.mouseReleaseEvent(w,event)
-
-            # Monkey patch a click handler.
-            # 2012/04/10: Use the same pattern for mouseReleaseEvents
-            # that is used in Leo's core:
-            def mouseReleaseEvent(*args,**keys):
-                if len(args) == 1:
-                    event = args[0]
-                elif len(args) == 2:
-                    event = args[1]
-                else:
-                    g.trace('can not happen',args)
-                    return
-                mouseReleaseHelper(w,event)
-            
-            w.mouseReleaseEvent = mouseReleaseEvent
-            pc.embed_widget(w) # Creates w.wrapper
-            assert (w == pc.w)
-            return pc.w
-        else:
-            return pc.w
-    #@+node:ekr.20110320120020.14483: *5* get_kind
-    def get_kind(self,p):
-        
-        '''Return the proper rendering kind for node p.'''
-        
-        pc = self ; h = p.h
-
-        if h.startswith('@'):
-            i = g.skip_id(h,1,chars='-')
-            word = h[1:i].lower().strip()
-            if word in pc.dispatch_dict:
-                return word
-                
-        # To do: look at ancestors, or uA's.
-
-        return pc.default_kind # The default.
-    #@+node:ekr.20110320233639.5776: *5* get_fn
-    def get_fn (self,s,tag):
-        
-        pc = self
-        c = pc.c
-        fn = s or c.p.h[len(tag):]
-        fn = fn.strip()
-        
-        # Similar to code in g.computeFileUrl
-        if fn.startswith('~'):
-            # Expand '~' and handle Leo expressions.
-            fn = fn[1:]
-            fn = g.os_path_expanduser(fn)
-            fn = g.os_path_expandExpression(fn,c=c)
-            fn = g.os_path_finalize(fn)
-        else:
-            # Handle Leo expressions.
-            fn = g.os_path_expandExpression(fn,c=c)
-            # Handle ancestor @path directives.
-            if c and c.openDirectory:
-                base = c.getNodePath(c.p)
-                fn = g.os_path_finalize_join(c.openDirectory,base,fn)
+                # Get a filename from the headline or body text.
+                ok, path = pc.get_fn(s, '@svg')
+                if ok:
+                    pc.show()
+                    w.load(path)
+                    w.show()
+        #@+node:ekr.20110321005148.14537: *4* vr.update_url
+        def update_url(self, s, keywords):
+            pc = self
+            c, p = self.c, self.c.p
+            colorizer = c.frame.body.colorizer
+            language = colorizer.scanLanguageDirectives(p)
+            if language in ('rest', 'rst'):
+                pc.update_rst(s, keywords)
+            elif language in ('markdown', 'md'):
+                pc.update_md(s, keywords)
+            elif pc.default_kind in ('rest', 'rst'):
+                pc.update_rst(s, keywords)
+            elif pc.default_kind in ('markdown', 'md'):
+                pc.update_md(s, keywords)
             else:
+                # Do nothing.
+                g.trace('ignore',s)
+                w = pc.ensure_text_widget()
+                pc.show()
+                w.setPlainText('')
+        #@+node:ekr.20110322031455.5765: *4* vr.utils for update helpers...
+        #@+node:ekr.20110322031455.5764: *5* vr.ensure_text_widget
+        def ensure_text_widget(self):
+            '''Swap a text widget into the rendering pane if necessary.'''
+            c, pc = self.c, self
+            if pc.must_change_widget(QtWidgets.QTextBrowser):
+                # Instantiate a new QTextBrowser.
+                # Allow non-ctrl clicks to open url's.
+                w = QtWidgets.QTextBrowser()
+
+                def handleClick(url, w=w):
+                    import leo.plugins.qt_text as qt_text
+                    wrapper = qt_text.QTextEditWrapper(w, name='vr-body', c=c)
+                    event = g.Bunch(c=c, w=wrapper)
+                    g.openUrlOnClick(event, url=url)
+
+                # if self.w and hasattr(self.w, 'anchorClicked'):
+                    # try:
+                        # self.w.anchorClicked.disconnect()
+                    # except Exception:
+                        # g.es_exception()
+
+                w.anchorClicked.connect(handleClick)
+                w.setOpenLinks(False)
+                pc.embed_widget(w) # Creates w.wrapper
+                assert(w == pc.w)
+            return pc.w
+        #@+node:ekr.20110320120020.14483: *5* vr.get_kind
+        def get_kind(self, p):
+            '''Return the proper rendering kind for node p.'''
+            trace = False and not g.unitTesting
+            c, h, pc = self.c, p.h, self
+            if h.startswith('@'):
+                i = g.skip_id(h, 1, chars='-')
+                word = h[1: i].lower().strip()
+                if word in pc.dispatch_dict:
+                    return word
+            # 2016/03/25: Honor @language
+            colorizer = c.frame.body.colorizer
+            language = colorizer.scanLanguageDirectives(p, use_default=False)
+                # Fix #344: don't use c.target_language as a default.
+            if trace: g.trace(repr(language))
+            if got_markdown and language in ('md', 'markdown'):
+                return language
+            elif got_docutils and language in ('rest', 'rst'):
+                return language
+            elif language and language in pc.dispatch_dict:
+                return language
+            else:
+                # To do: look at ancestors, or uA's.
+                return pc.default_kind # The default.
+        #@+node:ekr.20110320233639.5776: *5* vr.get_fn
+        def get_fn(self, s, tag):
+            pc = self
+            c = pc.c
+            fn = s or c.p.h[len(tag):]
+            fn = fn.strip()
+            # Similar to code in g.computeFileUrl
+            if fn.startswith('~'):
+                # Expand '~' and handle Leo expressions.
+                fn = fn[1:]
+                fn = g.os_path_expanduser(fn)
+                fn = g.os_path_expandExpression(fn, c=c)
                 fn = g.os_path_finalize(fn)
-
-        ok = g.os_path_exists(fn)
-        return ok,fn
-    #@+node:ekr.20110321005148.14536: *5* get_url
-    def get_url (self,s,tag):
-        
-        p = self.c.p
-        url = s or p.h[len(tag):]
-        url = url.strip()
-        return url
-    #@+node:ekr.20110322031455.5763: *5* must_change_widget
-    def must_change_widget (self,widget_class):
-        
-        pc = self
-        return not pc.w or pc.w.__class__ != widget_class
-    #@+node:ekr.20110320120020.14485: *5* remove_directives
-    def remove_directives (self,s):
-        
-        lines = g.splitLines(s)
-        result = []
-        for s in lines:
-            if s.startswith('@'):
-                i = g.skip_id(s,1)
-                word = s[1:i]
-                if word in g.globalDirectiveList:
-                    continue
-            result.append(s)
-        
-        return ''.join(result)
-    #@-others
+            else:
+                # Handle Leo expressions.
+                fn = g.os_path_expandExpression(fn, c=c)
+                # Handle ancestor @path directives.
+                if c and c.openDirectory:
+                    base = c.getNodePath(c.p)
+                    fn = g.os_path_finalize_join(c.openDirectory, base, fn)
+                else:
+                    fn = g.os_path_finalize(fn)
+            ok = g.os_path_exists(fn)
+            # if not ok: g.trace('not found', fn)
+            return ok, fn
+        #@+node:ekr.20110321005148.14536: *5* vr.get_url
+        def get_url(self, s, tag):
+            p = self.c.p
+            url = s or p.h[len(tag):]
+            url = url.strip()
+            return url
+        #@+node:ekr.20110322031455.5763: *5* vr.must_change_widget
+        def must_change_widget(self, widget_class):
+            pc = self
+            return not pc.w or pc.w.__class__ != widget_class
+        #@+node:ekr.20110320120020.14485: *5* vr.remove_directives
+        def remove_directives(self, s):
+            lines = g.splitLines(s)
+            result = []
+            for s in lines:
+                if s.startswith('@'):
+                    i = g.skip_id(s, 1)
+                    word = s[1: i]
+                    if word in g.globalDirectiveList:
+                        continue
+                result.append(s)
+            return ''.join(result)
+        #@+node:vitalije.20170712183051.1: *3* vr.adjust_layout
+        def adjust_layout(self, which):
+            global layouts
+            c = self.c
+            splitter = self.splitter
+            deflo = c.db.get('viewrendered_default_layouts', (None, None))
+            (loc, loo) = layouts.get(c.hash(), deflo)
+            if which == 'closed' and loc and splitter:
+                splitter.load_layout(loc)
+            elif which == 'open' and loo and splitter:
+                splitter.load_layout(loo)
+        #@+node:vitalije.20170712183618.1: *3* vr.store_layout
+        def store_layout(self, which):
+            global layouts
+            c = self.c; h = c.hash()
+            splitter = self.splitter
+            deflo = c.db.get('viewrendered_default_layouts', (None, None))
+            (loc, loo) = layouts.get(c.hash(), deflo)
+            if which == 'closed' and splitter:
+                loc = splitter.get_saveable_layout()
+                loc = json.loads(json.dumps(loc))
+                layouts[h] = loc, loo
+            elif which == 'open' and splitter:
+                loo = splitter.get_saveable_layout()
+                loo = json.loads(json.dumps(loo))
+                layouts[h] = loc, loo
+            c.db['viewrendered_default_layouts'] = layouts[h]
+        #@-others
 #@-others
 #@@language python
 #@@tabwidth -4

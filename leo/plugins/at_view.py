@@ -1,19 +1,22 @@
 #@+leo-ver=5-thin
 #@+node:ktenney.20041211072654.1: * @file at_view.py
+#@+<< docstring >>
+#@+node:ekr.20150411161126.1: ** << docstring >> (at_view.py)
 r''' Adds support for \@clip, \@view and \@strip nodes.
 
 - Selecting a headline containing \@clip appends the contents of the clipboard to
   the end of the body pane.
 
-- Double clicking the icon box of a node whose headline contains \@view
+- The double-click-icon-box command on a node whose headline contains \@view
   *<path-to-file>* places the contents of the file in the body pane.
 
-- Double clicking the icon box of a node whose headline contains \@strip
+- The double-click-icon-box command on a node whose headline contains \@strip
   *<path-to-file>* places the contents of the file in the body pane, with all
   sentinels removed.
 
 This plugin also accumulates the effect of all \@path nodes.
 '''
+#@-<< docstring >>
 __version__ = "0.9"
 import leo.core.leoGlobals as g
 path           = g.importExtension('path',          pluginName=__name__,verbose=True)
@@ -31,7 +34,7 @@ def init():
         s = 'at_view plugin not loaded: win32Clipboard not present.'
         g.es_print(s)
     return ok
-#@+node:ktenney.20041211072654.6: ** onCreate
+#@+node:ktenney.20041211072654.6: ** onCreate (at_view.py)
 def onCreate(tag, keywords):
 
     c = keywords.get("c")
@@ -43,7 +46,7 @@ def onCreate(tag, keywords):
     g.registerHandler("idle", myView.idle)
     g.plugin_signon(__name__)
 #@+node:ktenney.20041211072654.7: ** class View
-class View:
+class View(object):
 
     '''A class to support @view, @strip and @clip nodes.'''
 
@@ -53,13 +56,11 @@ class View:
 
         self.c = c
         # g.trace('View')
-    #@+node:ktenney.20041211072654.9: *3* icondclick2
+    #@+node:ktenney.20041211072654.9: *3* icondclick2 (at_view.py)
     def icondclick2 (self, tag, keywords):
 
         self.current = self.c.p
         hs = self.current.h
-
-        g.trace(hs)
 
         if hs.startswith('@view'):
             self.view()
@@ -83,7 +84,7 @@ class View:
 
         '''Place the contents of a file in the body pane
 
-        the file is either in the current headstring, 
+        the file is either in the current headstring,
         or found by ascending the tree
         '''
 

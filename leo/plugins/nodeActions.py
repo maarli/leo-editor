@@ -1,17 +1,17 @@
 #@+leo-ver=5-thin
 #@+node:TL.20090225102340.32: * @file nodeActions.py
 #@+<< docstring >>
-#@+node:TL.20080507213950.3: ** << docstring >>
+#@+node:TL.20080507213950.3: ** << docstring >> (nodeActions.py)
 r""" Allows the definition of double-click actions.
 
-When the user double-clicks a node this plugin checks for a match of the clicked
-node's headline text with a list of patterns. If a match occurs, the plugin
-executes the associated script.
+The double-click-icon-box command causes this plugin checks for a match of
+the clicked node's headline text with a list of patterns. If a match
+occurs, the plugin executes the associated script.
 
-**nodeAction** nodes may be located anywhere in the outline. Such nodes should
-contain one or more **pattern nodes** as children. The headline of each pattern
-node contains the pattern; the body text contains the script to be executed when
-the pattern matches the double-clicked node.
+**nodeAction** nodes may be located anywhere in the outline. Such nodes
+should contain one or more **pattern nodes** as children. The headline of
+each pattern node contains the pattern; the body text contains the script
+to be executed when the pattern matches the double-clicked node.
 
 For example, the "nodeActions" node containing a "launch URL" pattern node
 and a "pre-process python code" node could be placed under an "@settings"
@@ -35,12 +35,12 @@ file:
 @bool nodeActions_save_atFile_nodes = False
 
   :True:
-     Double-click on an @file type node will save the file to disk
-     before executing the script.
+     The double-click-icon-box command on an @file type node will save the
+     file to disk before executing the script.
 
   :False:
-     Double-click on an @file type node will **not** save the file to disk
-     before executing the script. (default)
+     The double-click-icon-box command on an @file type node will **not**
+     save the file to disk before executing the script. (default)
 
 @int nodeActions_message_level = 1
 
@@ -81,9 +81,9 @@ the pattern can start with "@files" to match on any
 external file type.  For example, the pattern "@files \*.py" will
 match a node with the headline "@file abcd.py".
 
-The headline of the double-clicked node is matched against the patterns
-starting from the first sub-node under the "nodeActions" node to the last
-sub-node.
+The double-click-icon-box command matches the headline of the node against
+the patterns starting from the first sub-node under the "nodeActions" node
+to the last sub-node.
 
 Only the script associated with the first matching pattern is
 invoked unless overwritten by the "V" pattern directive.
@@ -178,10 +178,10 @@ The following global variables are available to the script::
 
 **Examples**
 
-Double-clicking on a node with a "http:\\\\www.google.com" headline
-will invoke the script associated with the
-"http:\\\\\*" pattern.  The following script in the body of the pattern's
-node displays the URL in a browser::
+The double-click-icon-box command on a node with a
+"http:\\\\www.google.com" headline will invoke the script associated with
+the "http:\\\\\*" pattern. The following script in the body of the
+pattern's node displays the URL in a browser::
 
      import webbrowser
      hClicked = pClicked.h     #Clicked node's Headline text
@@ -193,7 +193,6 @@ execute a command in the first line of the body of a double-clicked node::
      g.os.system('"Start /b ' + pClicked.bodyString() + '"')
 
 """
-
 #@-<< docstring >>
 
 # Written by TL.
@@ -243,10 +242,11 @@ def onIconDoubleClickNA(tag, keywords):
         return None #No action taken - Let other double-click handlers run
 
 
-#@+node:TL.20080507213950.7: ** init
+#@+node:TL.20080507213950.7: ** init (nodeActions.py)
 def init():
     '''Return True if the plugin has loaded successfully.'''
-    g.blue("nodeActions: Init")
+    if not g.app.batchMode:
+        g.blue("nodeActions: Init")
     ok = not g.app.unitTesting # Dangerous for unit testing.
     if ok:
         g.registerHandler("icondclick1", onIconDoubleClickNA)
@@ -305,10 +305,10 @@ def doNodeAction(pClicked, c):
             else:
                 directives = "[]"
             #What directives exist?
-            useRegEx = re.search("X", directives) != None
-            passEventInternal = re.search("V", directives) != None
+            useRegEx = re.search("X", directives) is not None
+            passEventInternal = re.search("V", directives) is not None
             if not passEventExternal: #don't disable once enabled.
-                passEventExternal = re.search(">", directives) != None
+                passEventExternal = re.search(">", directives) is not None
             #Remove the directives from the end of the pattern (if they exist)
             pattern = re.sub( " \[.*]$", "", pattern, 1)
             if messageLevel >= 4:
@@ -347,7 +347,7 @@ def doNodeAction(pClicked, c):
                     if saveAtFile:
                         #Problem - No way found to just save clicked node, saving all
                         c.fileCommands.writeAtFileNodes()
-                        c.requestRedrawFlag = True
+                        ### c.requestRedrawFlag = True
                         c.redraw()
                         if messageLevel >= 3:
                             g.blue( "nA:    Saved '" + hClicked + "'")
@@ -356,7 +356,7 @@ def doNodeAction(pClicked, c):
                 #Indicate that at least one pattern was matched
                 foundPattern = True
                 #Don't trigger more patterns unless enabled in patterns' headline
-                if passEventInternal == False:
+                if not passEventInternal:
                     break
             else:
                 if messageLevel >= 3:
@@ -368,7 +368,7 @@ def doNodeAction(pClicked, c):
             if messageLevel >= 1:
                 g.blue("nA: No patterns matched to """ + hClicked + '"')
             return False #TL - Inform onIconDoubleClick that no action was taken
-        elif passEventExternal == True:
+        elif passEventExternal:
             #last matched pattern has directive to pass event to next plugin
             if messageLevel >= 2:
                 g.blue("nA: Event passed to next plugin")
@@ -408,7 +408,7 @@ def applyNodeAction(pScript, pClicked, c):
             if c.config.redirect_execute_script_output_to_log_pane:
                 g.restoreStderr()
                 g.restoreStdout()
-        except:
+        except Exception:
             #Unredirect output
             if c.config.redirect_execute_script_output_to_log_pane:
                 g.restoreStderr()

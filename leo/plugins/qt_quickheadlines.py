@@ -5,7 +5,7 @@
 '''qt_quickheadlines plugin.'''
 __qh = None # For quick headlines.
 import leo.core.leoGlobals as g
-from leo.core.leoQt import QtCore,QtWidgets
+from leo.core.leoQt import QtCore, QtWidgets
 #@+others
 #@+node:ekr.20140907123524.18778: ** install_qt_quickheadlines_tab
 def install_qt_quickheadlines_tab(c):
@@ -14,7 +14,8 @@ def install_qt_quickheadlines_tab(c):
 
 g.insqh = install_qt_quickheadlines_tab
 #@+node:ekr.20110605121601.18534: ** class QuickHeadlines
-class QuickHeadlines:
+class QuickHeadlines(object):
+
     def __init__(self, c):
         self.c = c
         tabw = c.frame.top.tabWidget
@@ -22,12 +23,14 @@ class QuickHeadlines:
         tabw.addTab(self.listWidget, "Headlines")
         c.frame.top.treeWidget.itemSelectionChanged.connect(self.req_update)
         self.requested = False
+
     def req_update(self):
         """ prevent too frequent updates (only one/100 msec) """
         if self.requested:
             return
         QtCore.QTimer.singleShot(100, self.update)
         self.requested = True
+
     def update(self):
         g.trace("quickheadlines update")
         self.requested = False
@@ -38,4 +41,5 @@ class QuickHeadlines:
 #@-others
 #@@language python
 #@@tabwidth -4
+#@@pagewidth 70
 #@-leo

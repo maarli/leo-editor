@@ -2,12 +2,14 @@
 #@+node:ekr.20121126095734.12418: * @file threadutil.py
 #@@language python
 #@@tabwidth -4
-
-from leo.core.leoQt import QtCore, QtGui
+#@+<< threadutils imports >>
+#@+node:ekr.20161223141850.1: ** << threadutils imports >>
+from leo.core.leoQt import QtCore, QtWidgets # QtGui,
 import logging
 import time
 import leo.core.leoGlobals as g
 from collections import deque
+#@-<< threadutils imports >>
 if 1:
     log = None
 else:
@@ -79,15 +81,15 @@ def log_filedes(f, level):
 #@+node:ekr.20121126095734.12443: *3* main
 def main():
     # stupid test
-    a = QtGui.QApplication([])
-    b = QtGui.QPushButton("Say hello", None)
+    a = QtWidgets.QApplication([])
+    b = QtWidgets.QPushButton("Say hello", None)
     g.procs.add(['ls', '/tmp'])
     g.procs.add(['ls', '-la'])
     #a.setMainWidget(b)
     b.show()
     a.exec_()
 #@+node:ekr.20121126095734.12433: ** class NowOrLater
-class NowOrLater:
+class NowOrLater(object):
     #@+others
     #@+node:ekr.20121126095734.12434: *3* __init__
 
@@ -166,14 +168,14 @@ class RRunner(QtCore.QThread):
 
     #@-others
 #@+node:ekr.20140910173844.17824: ** class SysProcessRunner
-class SysProcessRunner:
+class SysProcessRunner(object):
     def __init__(self):
         # dict of lists (queues)
         self.q = {}
         self.cur = {}
         self.default_cb = None
-    
-    
+
+
     def add(self, argv, key = "", cb = None):
         """ argv = [program, arg1, ...] """
         ent = {
@@ -182,17 +184,17 @@ class SysProcessRunner:
         }
         self.q.setdefault(key, deque()).append(ent)
         self.sched()
-    
+
     def sched(self):
         for k,q in self.q.items():
             if q and k not in self.cur:
                 ent = q.popleft()
                 self.cur[k] = ent
                 self.run_one(ent, k)
-    
+
     def run_one(self, ent, key):
         p = ent['proc'] = QtCore.QProcess()
-    
+
         def fini(code, status):
             del self.cur[key]
             out = str(p.readAllStandardOutput())
@@ -200,15 +202,15 @@ class SysProcessRunner:
             cb = ent['cb'] or self.default_cb
             later(self.sched)
             cb(out, err, status, ent)
-    
-    
+
+
         cmd = ent['arg'][0]
         args = ent['arg'][1:]
         p.start(cmd, args)
         p.finished.connect(fini)
 
 #@+node:ekr.20121126095734.12419: ** class ThreadQueue
-class ThreadQueue:
+class ThreadQueue(object):
     #@+others
     #@+node:ekr.20121126095734.12420: *3* __init__
     def __init__(self):

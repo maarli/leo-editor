@@ -29,7 +29,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '',
-        VERSION:     '5.0',
+        VERSION:     '5.6',
         COLLAPSE_MODINDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  false
@@ -78,9 +78,17 @@
 
     <!-- <script type="text/javascript" src="_static/jquery.js"></script>-->
     <!-- <script type="text/javascript" src="_static/doctools.js"></script>-->
-    <link rel="top" title="Leo 5.0 documentation" href="index.html" />
+    <link rel="top" title="Leo 5.6 documentation" href="index.html" />
     <link rel="Users Guide" title="Leo&#8217;s Users Guide" href="leo_toc.html" />
-    <!-- <link rel="prev" title="Using Leoâ€™s Commands" href="commands.html" />--> 
+    <!-- <link rel="prev" title="Using Leo's Commands" href="commands.html" />--> 
+
+    <script type="text/javascript">
+    function search(event) {
+      if (event === null || (event.keyCode || event.which) === 13) {
+        window.open('http://www.google.com/search?q=site:leoeditor.com+'+document.getElementById('q').value);
+      }
+    }
+    </script>
     <!--@-<< head >>-->
 </head>
 <body>
@@ -98,7 +106,7 @@
       <li class="right" >
         <a href="leo_toc.html" title="Users Guide"
            accesskey="N">contents</a> |</li>
-      <li><a href="leo_toc.html">Leo 5.0 documentation</a></li>
+      <li><a href="leo_toc.html">Leo 5.6 documentation</a></li>
       <!--  &raquo; -->
     </ul>
   </div>
@@ -132,58 +140,29 @@
               Leo is a
               <a href="https://en.wikipedia.org/wiki/Personal_information_manager">PIM</a>, 
               <a href="https://en.wikipedia.org/wiki/Integrated_development_environment">IDE</a>
-              and outliner that
-              <strong>accelerates the work flow</strong>
-              of programmers, authors and web designers.
-              Leo's unique features <strong>organize data in a revolutionary way</strong>:
-              <li>
-                Leo outlines are views on an underlying
-                <a href="https://en.wikipedia.org/wiki/Directed_acyclic_graph">graph</a>.
-              <li>
-                Outline nodes can reside in <strong>many</strong> places within a single outline.</li>
-              <li>
-                Leo is fully scriptable in <a HREF="http://www.python.org/">Python</a>.</li>
-              <li>
-                Leo scripts have full access to Leo's source code and all outline data.</li>
-              <li>
-                <a href="http://leoeditor.com/tutorial-programming.html">Outline-oriented markup</a> generates
-                <a href="http://leoeditor.com/tutorial-basics.html#creating-external-files-with-file-and-all">external files</a>
-                from outlines.</li>
-              </p>
+              and outliner that accelerates the work flow of programmers, authors and web designers.
+              <em>Outline nodes may appear in more than one place</em>, allowing multiple organizations of data within a single outline.
+
               <p>
-                <a href="http://leoeditor.com/preliminaries.html#preface">
-                  <strong>Learn why Leo is special</strong></a>.
+                <a href="preface.html">
+                  <strong>A brief summary of Leo</strong></a>.
                 <br>
-                <a href="http://leoeditor.com/tutorial.html">
-                  <strong>Learn about Leo in two hours</strong></a>.
+                <a href="testimonials.html">
+                  <strong>What people are saying about Leo</strong></a>.
+                <br>
+                <a href="tutorial.html">
+                  <strong>Learn about Leo in 10 minutes</strong></a>.
               </p>
-              <p>
-              Furthermore:
-              </p>
-              <li>
-              Leo is <a href="http://www.opensource.org/"><i>Open Software</i></a>,
-              written in pure <a HREF="http://www.python.org/">Python</a>.
-              <li>
-              Leo a <a HREF="http://www.riverbankcomputing.co.uk/software/pyqt/intro">PyQt</a>
-              app that runs on Linux, Windows and MacOS.</li>
-              <li>
-              Leo works well with <a href="http://www.gnu.org/software/emacs/">emacs</a>,
-                <a href="http://www.xemacs.org/">xemacs</a>,
-                <a href="http://www.vim.org/">vim</a>, and
-                <a href="http://ipython.org/">ipython</a>.</li>
-              </p>
+
               <!--@-<< Leo is... >>-->
               <!--@+<< Leo Google group & postcard >>-->
               <!--@+node:ekr.20131005151401.16117: *3* << Leo Google group & postcard >>-->
               <p>
-              <strong>We welcome your questions and comments!</strong>
-              <br>
-              Ask us anything at the medium traffic
+              <strong>Ask us anything</strong> at the
               <a href="http://groups.google.com/group/leo-editor"><strong>leo-editor Google Group</strong></a>.
               <br>
-              If you use Leo, please
               <a href="mailto:edreamleo@gmail.com?Subject=About%20Leo" target="_top">
-                <strong>send us a postcard</strong></a>, telling how you use Leo. Thanks!
+                <strong>Send us a postcard</strong></a>, telling how you use Leo. Thanks!
               </p>
 
               <!--
@@ -196,14 +175,30 @@
               <!--@-<< Leo Google group & postcard >>-->
               <!--@+<< screenshot >>-->
               <!--@+node:ekr.20130924043646.21624: *3* << screenshot >>-->
-              <p>Here is a slightly reduced screenshot of Leo's main window:</p>
+              <p>Here is a screenshot of Leo's main window:</p>
 
-              <!-- height/width taken from basics1.html -->
               <img class="screenshot"
-                  src="screen-shots/render-svg-sources.png"
-                  width="791.2px" height="692.8px" 
+                  src="screen-shots/leo-workbook.png"
                   alt="ScreenShot"/>
               <!--@-<< screenshot >>-->
+              <!--@+<< embed leo-editor >>-->
+              <!--@+node:ekr.20150414224436.1: *3* << embed leo-editor >>-->
+              <!-- This works --
+              <iframe id="forum_embed"
+                  src="javascript:void(0)"
+                  scrolling="yes"
+                  frameborder="1"
+                  width="900"
+                  height="700">
+              </iframe>
+              <script type="text/javascript">
+                document.getElementById('forum_embed').src =
+                   'https://groups.google.com/forum/embed/?place=forum/leo-editor'
+                   + '&showsearch=true&showpopout=true&showtabs=true'
+                   + '&parenturl=' + encodeURIComponent(window.location.href);
+              </script>
+              -->
+              <!--@-<< embed leo-editor >>-->
           </div>
           <!--@-<< div main section >>-->
         </div>
@@ -226,36 +221,29 @@
             </p>
             <p>
             <form>
-              <!-- background-color:skyblue3 -->
-              <!-- border-style:solid;border-color:#87CEEB -->
               <input type="button"
                 style="background-color:#6CA6CD;"
                 value="Download Leo"
-                onClick="window.location.href='http://leoeditor.com/download.html'">
+                onClick="window.location.href='download.html'">
             </form>
             </p>
 
-            <a class="reference external" href="http://leoeditor.com/screencasts.html">
-              Videos about Leo</a><br>
-
-            <!---
-            <a href="http://www.youtube.com/watch?v=Zu6J-J0qFi0">
-              Introductory video</a><br>
-            <a href="https://vimeo.com/77720098 ">
-              Bookmarks plugin video</a><br>
-            -->
-              
             <a class="reference external" href="tutorial.html">
-              Leo's Tutorial</a><br>
+              Tutorial</a><br>
 
-            <a class="reference external" href="http://leoeditor.com/leo_toc.html">
-              Leo's Documentation</a><br>
+            <a class="reference external" href="leo_toc.html">
+              Documentation</a><br>
               
             <a class="reference external" href="http:screen-shots.html">
-              Screen shots of Leo</a><br>
+              Screen shots</a><br>
               
+            <a class="reference external" href="screencasts.html">
+              Videos</a><br>
+              
+            <!--
             <a class="reference external" href="testimonials.html">
               Quotes from Leo&#8217;s Users</a><br>
+            -->
               
             <a class="reference external" href="slides.html">
               Tutorial Slide Shows</a><br>
@@ -264,43 +252,46 @@
               #leo IRC</a><br>
 
             <a class="reference external" href="http://groups.google.com/group/leo-editor">
-              leo-editor: Google Groups</a><br>
+              Leo at Google Groups</a><br>
               
             <a class="reference external" href="https://github.com/leo-editor">
-              leo-editor: GitHub</a><br>
+              Leo at GitHub</a><br>
               
+            <a class="reference external" href="https://github.com/leo-editor/snippets">
+              Code Snippets</a><br>
+
+            <!--
+            <a class="reference external" href="http://leo.zwiki.org">
+              Leo&#8217;s Wiki</a><br>
+            -->
+              
+            <a class="reference external" href="http://leo-editor.readthedocs.org/en/latest/">
+              Readthedocs (API)</a><br>
+              
+            <!--
+            <a class="reference external" href="http://www.mind-mapping.org/">
+              Mind Mapping</a><br>
+            -->
+
             <a class="reference external" href="https://github.com/leo-editor/leo-editor/issues">
               Report a bug</a><br>
               
-            <a class="reference external" href="http://leo.zwiki.org">
-              Leo&#8217;s Wiki</a><br>
-              
-            <a class="reference external" href="http://leo-editor.readthedocs.org/en/latest/">
-              Leo&#8217;s API documentation</a><br>
-              
-            <a class="reference external" href="http://www.mind-mapping.org/">
-              Mind Mapping</a><br>
-
             <a class="reference external" href="leoLinks.html">
               More links...</a><br>
               
             </p>
             <p>
             <div id="searchbox" style="">
-              <h3>Quick search</h3>
-              <form class="search" method="get" action="search.html">
-                <input type="text" name="q">
-                <input type="submit" value="Go">
-                <input type="hidden" value="yes" name="check_keywords">
-                <input type="hidden" value="default" name="area">
-              </form>
-              <p class="searchtip" style="font-size: 90%">
-                Enter search terms or a module, class or function name.
-              </p>
+              <!-- <h4>Google Search</h4> -->
+                <input id='q' type="text" name="q" onkeypress="search(event)">
+              <div><button onclick="search(null)">Google Search</button></div>
+              <div class="searchtip" style="font-size: 90%">
+                Use quotes for "@file" and similar symbols.
+              </div>
             </div>
             </p>
 
-            <p>Leo: Leonine Editor with Outlines</p>
+            <!-- <p>Leo: Leonine Editor with Outlines</p> -->
 
             <p>Written by <a HREF="ekr.html">Edward K. Ream</a>
             <!--@+<< flattr icon >>-->
@@ -336,15 +327,15 @@
         <a href="leo_toc.html" title="Users Guide"
            >contents</a> |</li>
 
-      <li><a href="leo_toc.html">Leo 5.0 documentation</a></li> 
+      <li><a href="leo_toc.html">Leo 5.6 documentation</a></li> 
     </ul>
   </div>
   <!--@-<< div bottom nav >>-->
   <!--@+<< div footer >>-->
   <!--@+node:ekr.20100808060203.4278: ** << div footer >>-->
   <div class="footer">
-    &copy; Copyright 2001-2014, Edward K. Ream.
-    Last updated on November 6, 2013.
+    &copy; Copyright 1997-2017, Edward K. Ream.
+    Last updated on September 11, 2017.
     Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.
   </div>
   <!--@-<< div footer >>-->

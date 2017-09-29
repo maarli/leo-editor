@@ -5,9 +5,9 @@
 Usage:
 
 * Create a node with the headline 'tomboy'
-* Select the node, and do alt+x act-on-node    
+* Select the node, and do alt+x act-on-node
 * The notes will appear as children of 'tomboy' node
-* The next time you do act-on-node, existing notes will be updated (they don't need to 
+* The next time you do act-on-node, existing notes will be updated (they don't need to
   be under 'tomboy' node anymore) and new notes added.
 
 '''
@@ -49,11 +49,13 @@ def onCreate (tag, keys):
     tomboy_install()
 #@+node:ville.20090503124249.7: ** the code
 class MLStripper(HTMLParser.HTMLParser):
+    # pylint: disable=super-init-not-called
+    # pylint: disable=abstract-method
     def __init__(self):
         self.reset()
         self.fed = []
-    def handle_data(self, d):
-        self.fed.append(d)
+    def handle_data(self, data):
+        self.fed.append(data)
     def get_fed_data(self):
         return ''.join(self.fed)
 
@@ -84,7 +86,8 @@ def pos_for_gnx(c,gnx):
     return None
 
 def capturenotes(c,pos):
-    import glob, os
+    import glob
+    import os
     notes = glob.glob(os.path.expanduser('~/.tomboy/*.note'))
 
     # map tomboy file name => gnx
@@ -106,7 +109,7 @@ def capturenotes(c,pos):
             po = pos.insertAsLastChild()
 
         po.h = title
-        po.b = body        
+        po.b = body
         old_nodes[fname] = po.gnx
     c.db['tomboy_notes'] = old_nodes
 
@@ -116,7 +119,7 @@ def tomboy_act_on_node(c,p,event):
         raise leoPlugins.TryNext
 
     capturenotes(c,p)
-    c.redraw_now()
+    c.redraw()
 
 def tomboy_install():
     g.act_on_node.add(tomboy_act_on_node, 99)

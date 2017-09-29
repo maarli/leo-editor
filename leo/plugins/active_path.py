@@ -1,20 +1,20 @@
 #@+leo-ver=5-thin
 #@+node:tbrown.20080613095157.2: * @file active_path.py
 #@+<< docstring >>
-#@+node:tbrown.20080613095157.3: ** << docstring >>
+#@+node:tbrown.20080613095157.3: ** << docstring >> (active_path)
 r'''Synchronizes \@path nodes with folders.
 
-If a node is named '\@path *<path_to_folder>*', the content (file and folder names)
-of the folder and the children of that node will synchronized whenever you double-click
-the node's status-iconbox.
+If a node is named '\@path *<path_to_folder>*', the content (file and folder
+names) of the folder and the children of that node will synchronized whenever
+you double-click the node.
 
 For files not previously seen in a folder a new node will appear on top of the
 children list (with a mark).
 
-Folders appear in the list as /foldername/. If you double click on the icon-box
-of the folder node, it will have children added to it based on the contents of
-the folder on disk. These folders have the '@path' directive as the first line
-of their body text.
+Folders appear in the list as /foldername/. If you double click on the folder
+node, it will have children added to it based on the contents of the folder on
+disk. These folders have the '@path' directive as the first line of their body
+text.
 
 When files are deleted from the folder and the list is updated by double
 clicking the files will appear in the list as *filename* (or */foldername/*).
@@ -26,46 +26,73 @@ name cannot contain with '/'.
 
 Files and folders can be created by entering a node with the required name as
 its headline (must start and/or end with "/" for a folder) and then double
-clicking on the node's status-iconbox.
+clicking on the node.
 
-\@auto nodes can be set up for existing files can be loaded by
-double clicking on the node's status-iconbox. If you prefer
-\@shadow or something else use the "active_path_attype" setting,
-without the "@".
+\@auto nodes can be set up for existing files can be loaded by double clicking
+on the node. If you prefer \@shadow or something else use the
+"active_path_attype" setting, without the "@".
 
 There are commands on the Plugins active_path submenu:
 
 - show path - show the current path
-- set absolute path - changes a node "/dirname/" to "@path /absolute/path/to/dirname".
+- set absolute path - changes a node "/dirname/" to "@path
+  /absolute/path/to/dirname".
 - purge vanished (recursive) - remove *entries*
 - update recursive - recursive load of directories, use with caution on large
   file systems
 - pick dir - select a folder interactively to make a new top level @path node
+- mark-content - mark outline content in the @path tree, as opposed to
+  filesystem content. Useful if you want to delete the @path tree to check for
+  content not on the filesystem first
 
-If you want to use an input other than double clicking a node's status-iconbox
-set active_path_event to a value like 'iconrclick1' or 'iconclick1'.
+If you want to use an input other than double clicking a node set
+active_path_event to a value like 'hypercclick1' or 'headrclick1'.
 
-There are @settings for ignoring directory entries and automatically loading files.  ``re.search`` is used, rather than ``re.match``, so patterns need only match part of the filename, not the whole filename.
+There are @settings for ignoring directory entries and automatically loading
+files. ``re.search`` is used, rather than ``re.match``, so patterns need only
+match part of the filename, not the whole filename.
 
 The body of the @setting ``@data active_path_ignore`` is a list of regex
-patterns, one per line.  Directory entries matching any pattern in the list will be ignored.  The names of directories used for matching will have forward slashes around them ('/dirname/'), so patterns can use this to distinguish between directories and files.
+patterns, one per line. Directory entries matching any pattern in the list will
+be ignored. The names of directories used for matching will have forward slashes
+around them ('/dirname/'), so patterns can use this to distinguish between
+directories and files.
 
 The body of the @setting ``@data active_path_autoload`` is a list of regex
-patterns, one per line.  File entries matching any pattern in the list will be loaded automatically.  This works only with files, not directories (but you can load directories recursively anyway).
+patterns, one per line. File entries matching any pattern in the list will be
+loaded automatically. This works only with files, not directories (but you can
+load directories recursively anyway).
 
-Set ``@bool active_path_load_docstring = True`` to have active_path load the docstring
-of .py files automatically.  These nodes start with the special string::
+Autoloading can be toggled with `active-path-toggle-autoload`, autoloading
+defaults to initially on unless @bool active-path-do-autoload = False.
+
+Set ``@bool active_path_load_docstring = True`` to have active_path load the
+docstring of .py files automatically. These nodes start with the special
+string::
 
     @language rest # AUTOLOADED DOCSTRING
 
-which must be left intact if you want active path to be able to double-click load
-the file later.
+which must be left intact if you want active path to be able to double-click
+load the file later.
 
-\@float active_path_timeout_seconds (default 10.) controls the maximum
-time active_path will spend on a recursive operation.
+\@float active_path_timeout_seconds (default 10.) controls the maximum time
+active_path will spend on a recursive operation.
 
-\@int active_path_max_size (default 1000000) controls the maximum
-size file active_path will open without query.
+\@int active_path_max_size (default 1000000) controls the maximum size file
+active_path will open without query.
+
+Per Folder file/folder inclusion and exclusion by adding flags to the body of an
+active path folder (either ``@`` or ``/*/``), can include multiple ``inc=`` and
+``exc=`` flags:
+
+- ``excdirs`` - excludes all directories
+- ``excfiles`` - excludes all files
+- ``inc=`` - a single item or comma separated list of strings to include in the
+  list of files/folders
+- ``exc=`` - a single item or comma separated list of strings to exclude in the
+  list of files/folders
+- ``re`` - search using regular expressions (otherwise a case-sensitive 'in'
+  comparison)
 
 active_path is a rewrite of the at_directory plugin to use \@path directives
 (which influence \@auto and other \@file type directives), and to handle
@@ -80,15 +107,16 @@ import leo.core.leoGlobals as g
 import leo.core.leoPlugins as leoPlugins
     # uses leoPlugins.TryNext
 
+import ast # for docstring loading
 import os
 import re
-import ast # for docstring loading
+import shutil
 import time # for recursion bailout
 
-from leo.plugins.plugins_menu import PlugIn
+# from leo.plugins.plugins_menu import PlugIn
 
-if g.app.gui.guiName() == "qt":
-    from leo.core.leoQt import isQt5,QtCore
+# if g.app.gui.guiName() == "qt":
+#    from leo.core.leoQt import isQt5,QtCore
 #@-<< imports >>
 testing = False
 #@+others
@@ -110,7 +138,8 @@ def attachToCommander(t,k):
     g.registerHandler(event, lambda t,k: onSelect(t,k))
 
     # not using a proper class, so
-    c.__active_path = {'ignore': [], 'autoload': []}
+    c.__active_path = {'ignore': [], 'autoload': [],
+        'do_autoload': c.config.getBool('active_path_do_autoload', default=True)}
 
     if c.config.getData('active_path_ignore'):
         c.__active_path['ignore'] = [re.compile(i, re.IGNORECASE)
@@ -136,48 +165,91 @@ def attachToCommander(t,k):
         c.__active_path['max_size'] = 1000000
 
     c.__active_path['DS_SENTINEL'] = "@language rest # AUTOLOADED DOCSTRING"
-#@+node:tbrown.20091128094521.15042: ** popup_entry
-def mkCmd(cmd, c):
-
-    def f():
-        return cmd(c)
-    return f
+#@+node:tbrown.20091128094521.15042: ** popup_entry (active_path)
+### Old code.
+# def mkCmd(cmd, c):
+    # def f():
+        # return cmd(c)
+    # return f
 
 def popup_entry(c,p,menu):
-
+    '''Populate the Path submenu of the popup.'''
     pathmenu = menu.addMenu("Path")
-    for i in globals():
-        if i.startswith('cmd_'):
-            a = pathmenu.addAction(PlugIn.niceMenuName(i))
-            CMD = globals()[i]
-            if isQt5:
-                a.triggered.connect(mkCmd(CMD,c))
-            else:
-                a.connect(a, QtCore.SIGNAL("triggered()"), mkCmd(CMD,c))
+    d = g.global_commands_dict
+    for key in d:
+        if key.startswith('active-path'):
+            a = pathmenu.addAction(key)
+            command = d.get(key)
+
+            def active_path_wrapper(aBool,command=command,c=c):
+                event = {'c':c}
+                command(event)
+
+            a.triggered.connect(active_path_wrapper)
+    ### Old code
+    # for i in globals():
+        # if i.startswith('cmd_'):
+            # a = pathmenu.addAction(PlugIn.niceMenuName(i))
+            # CMD = globals()[i]
+            # if isQt5:
+                # a.triggered.connect(mkCmd(CMD,c))
+            # else:
+                # a.connect(a, QtCore.SIGNAL("triggered()"), mkCmd(CMD,c))
 #@+node:tbrown.20091128094521.15037: ** isDirNode
 def isDirNode(p):
 
     return (
-        p.h.startswith('@path ') or 
+        p.h.startswith('@path ') or
         #  '/foo/' form *assumes* @path in body
-        (not p.h.strip().startswith('@') and p.h.strip().endswith('/'))
-        or p.h.strip().startswith('/')
+        (not p.h.strip().startswith('@') and p.h.strip().endswith('/')) or
+        p.h.strip().startswith('/')
         )
 #@+node:tbrown.20091128094521.15039: ** isFileNode
 def isFileNode(p):
     """really isEligibleToBecomeAFileNode"""
-    return (not p.h.strip().startswith('@') and not p.hasChildren() and
-      not isDirNode(p) and isDirNode(p.parent())
-      and (not p.b.strip() or # p.b.startswith(c.__active_path['DS_SENTINEL']
-      p.b.startswith("@language rest # AUTOLOADED DOCSTRING")  # no c!
+    return (
+        not p.h.strip().startswith('@') and not p.hasChildren() and
+        not isDirNode(p) and isDirNode(p.parent()) and
+        (not p.b.strip() or
+        p.b.startswith("@language rest # AUTOLOADED DOCSTRING")  # no c!
+            # p.b.startswith(c.__active_path['DS_SENTINEL']
       ))
+#@+node:jlunz.20150611151435.1: ** inAny
+def inAny(item, group, regEx=False):
+    """ Helper function to check if word from list is in a string """
+    if regEx:
+        if any(re.search(word,item) for word in group):
+            return True
+        else:
+            return False
+    else:
+        if any(word in item for word in group):
+            return True
+        else:
+            return False
+
+#@+node:jlunz.20150611151003.1: ** checkIncExc
+def checkIncExc(item,inc,exc,regEx):
+    """ Primary logic to check if an item is in either the include or exclude list """
+    if inc and not exc:
+        if inAny(item,inc,regEx):
+            return True
+        else:
+            return False
+    elif exc and not inc:
+        if not inAny(item,exc,regEx):
+            return True
+        else:
+            return False
+    elif exc and inc:
+        return True
+    else:
+        return True
 #@+node:tbrown.20091129085043.9329: ** inReList
 def inReList(txt, lst):
-
     for pat in lst:
         if pat.search(txt):
             return True
-
     return False
 #@+node:tbrown.20091128094521.15040: ** subDir
 def subDir(d, p):
@@ -200,7 +272,7 @@ def subDir(d, p):
     return os.path.join(d,p)
 #@+node:tbrown.20080613095157.4: ** onSelect
 def onSelect (tag,keywords):
-    """Determine if a file or directory status-iconbox was clicked, and the path"""
+    """Determine if a file or directory node was clicked, and the path"""
     c = keywords.get('c') or keywords.get('new_c')
     if not c: return
     p = keywords.get("p")
@@ -213,7 +285,7 @@ def onSelect (tag,keywords):
 
     if path:
         if sync_node_to_folder(c,pos,path):
-            c.requestRedrawFlag = True
+            ### c.requestRedrawFlag = True
             c.redraw()
             return True
 
@@ -276,28 +348,30 @@ def flattenOrganizers(p):
             nodeE
          oldStuff
             nodeF
-            nodeG    
-    """    
+            nodeG
+    """
     for n in p.children():
         yield n
-        if (not isDirNode(n)
-            and not n.h.startswith('@')):
+        if not isDirNode(n) and not n.h.startswith('@'):
             for i in flattenOrganizers(n):
                 yield i
 #@+node:tbrown.20080613095157.6: ** sync_node_to_folder
 def sync_node_to_folder(c,parent,d,updateOnly=False, recurse=False):
     """Decide whether we're opening or creating a file or a folder"""
 
-    if (not updateOnly
-      and not recurse
-      and isDirNode(parent) and not parent.h.strip().startswith('@path')
-      and not parent.b.strip().startswith('@path')):
+    if (
+        not updateOnly and
+        not recurse and
+        isDirNode(parent) and not parent.h.strip().startswith('@path') and
+        not parent.b.strip().startswith('@path')
+    ):
         createDir(c,parent,d)
         return True  # even if it didn't happen, else get stuck in edit mode w/o focus
 
     if os.path.isdir(d):
-        if (isDirNode(parent)
-            and (not updateOnly or recurse or parent.hasChildren())):
+        if (isDirNode(parent) and
+            (not updateOnly or recurse or parent.hasChildren())
+        ):
             # no '/' or @path implies organizer
             openDir(c,parent,d)
             return True
@@ -349,26 +423,25 @@ def createFile(c,parent,d):
 #@+node:tbrown.20080613095157.9: ** openFile
 def openFile(c,parent,d, autoload=False):
     """Open an existing file"""
-    # hdr = os.path.basename(d)
-    # parent.h = '@auto '+hdr
-    # parent.b = file(d).read()
 
     path = getPath(c, parent)
 
     if not os.path.isfile(path):
         return
 
+    oversize = os.stat(path).st_size > c.__active_path['max_size']
+
     if not autoload:
         binary_open = g.os_path_splitext(path)[-1].lower() in (
             c.config.getData('active_path_bin_open') or '')
-            
+
         if not binary_open:
             start = open(path).read(100)
             for i in start:
                 if ord(i) == 0:
                     binary_open = True
                     break
-                    
+
         if binary_open:
             g.es('Treating file as binary')
             g.handleUrl('file://' + path,c=c)
@@ -376,19 +449,33 @@ def openFile(c,parent,d, autoload=False):
             #     return
             return
 
-        if os.stat(path).st_size > c.__active_path['max_size']:
+        if oversize:
             if not query(c, "File size greater than %d bytes, continue?" %
               c.__active_path['max_size']):
                 return
 
-    c.importCommands.createOutline(d,parent=parent,atAuto=True)
+    if autoload and oversize:
+        return
+
     atType = c.config.getString('active_path_attype') or 'auto'
     parent.h = '@' + atType + ' ' + parent.h
-
+    c.selectPosition(parent)
+    if atType == 'asis':
+        parent.b = open(d).read()
+    else:
+        c.refreshFromDisk()
     c.bodyWantsFocus()
 #@+node:tbrown.20080613095157.10: ** openDir
 def openDir(c,parent,d):
-    """Expand / refresh an existing folder"""
+    """
+    Expand / refresh an existing folder
+
+    Note: With the addition of per folder inclusion/exclusion a check is done
+    against both the current list of nodes and against the files/folders as
+    they exist on the system. This check must be done in both places to keep
+    the node list in sync with the file system while respecting the inc/exc
+    lists - John Lunzer
+    """
 
     # compare folder content to children
     try:
@@ -401,7 +488,27 @@ def openDir(c,parent,d):
     # parent.expand()  # why?
 
     oldlist = set()
+    toRemove = set()
     newlist = []
+
+    bodySplit = parent.b.splitlines()
+
+    excdirs = False
+    excfiles = False
+    regEx = False
+    if re.search('^excdirs', parent.b, flags=re.MULTILINE):
+        excdirs = True
+    if re.search('^excfiles', parent.b, flags=re.MULTILINE):
+        excfiles = True
+    if re.search('^re', parent.b, flags=re.MULTILINE):
+        regEx = True
+
+    inc = [line.replace('inc=','') for line in bodySplit if line.startswith('inc=')]
+    exc = [line.replace('exc=','') for line in bodySplit if line.startswith('exc=')]
+
+    #flatten lists if using comma separations
+    inc = [item for line in inc for item in line.strip(' ').split(',')]
+    exc = [item for line in exc for item in line.strip(' ').split(',')]
 
     # get children info
     for p in flattenOrganizers(parent):
@@ -410,25 +517,45 @@ def openDir(c,parent,d):
             directive = entry.split(None,1)
             if len(directive) > 1:
                 entry = entry[len(directive[0]):].strip()
-        oldlist.add(entry)
+        #find existing inc/exc nodes to remove
+        #using p.h allows for example exc=/ to remove all directories
+        if not checkIncExc(p.h,inc,exc, regEx) or \
+               (excdirs and entry in dirs) or \
+               (excfiles and entry in files):
+            toRemove.add(p.h) #must not strip '/', so nodes can be removed
+        else:
+            oldlist.add(entry)
 
-    for d2 in dirs:
+    # remove existing found inc/exc nodes
+    for headline in toRemove:
+        found = g.findNodeInChildren(c,parent,headline)
+        if found:
+            found.doDelete()
+
+    # dirs trimmed by toRemove to remove redundant checks
+    for d2 in set(dirs)-set([h.strip('/') for h in toRemove]):
         if d2 in oldlist:
             oldlist.discard(d2)
         else:
-            newlist.append('/'+d2+'/')
-    for f in files:
+            if checkIncExc(d2,
+                           [i.strip('/') for i in inc],
+                           [e.strip('/') for e in exc],
+                           regEx) and not excdirs:
+                newlist.append('/'+d2+'/')
+
+    # files trimmed by toRemove, retains original functionality of plugin
+    for f in set(files)-toRemove:
         if f in oldlist:
             oldlist.discard(f)
         else:
-            newlist.append(f)
+            if checkIncExc(f, inc, exc, regEx) and not excfiles:
+                newlist.append(f)
 
     # insert newlist
     newlist.sort()
     ignored = 0
     newlist.reverse()  # un-reversed by the following loop
     for name in newlist:
-
         if inReList(name, c.__active_path['ignore']):
             ignored += 1
             continue
@@ -436,13 +563,18 @@ def openDir(c,parent,d):
         p = parent.insertAsNthChild(0)
         c.setChanged(True)
         c.setHeadString(p,name)
-        if name.startswith('/'): 
+        if name.startswith('/'):
             # sufficient test of dirness as we created newlist
             c.setBodyString(p, '@path '+name.strip('/'))
-        elif inReList(name, c.__active_path['autoload']):
+        elif (c.__active_path['do_autoload'] and
+              inReList(name, c.__active_path['autoload'])):
             openFile(c, p, os.path.join(d, p.h), autoload=True)
-        elif (c.__active_path['load_docstring'] and
-            name.lower().endswith(".py")):
+        elif (c.__active_path['do_autoload'] and
+              c.__active_path['load_docstring'] and
+              name.lower().endswith(".py")):
+            # do_autoload suppresses doc string loading because turning
+            # autoload off is supposed to address situations where autoloading
+            # causes problems, so don't still do some form of autoloading
             p.b = c.__active_path['DS_SENTINEL']+"\n\n"+loadDocstring(os.path.join(d, p.h))
         p.setMarked()
         p.contract()
@@ -453,8 +585,9 @@ def openDir(c,parent,d):
     # warn / mark for orphan oldlist
     for p in flattenOrganizers(parent):
         h = p.h.strip('/*')  # strip / and *
-        if (h not in oldlist 
-            or (p.hasChildren() and not isDirNode(p))):  # clears bogus '*' marks
+        if (h not in oldlist or
+            (p.hasChildren() and not isDirNode(p))
+        ):  # clears bogus '*' marks
             nh = p.h.strip('*')  # strip only *
         else:
             nh = '*'+p.h.strip('*')+'*'
@@ -463,6 +596,8 @@ def openDir(c,parent,d):
                     c.setHeadString(orphan, '*'+orphan.h.strip('*')+'*')
         if p.h != nh:  # don't dirty node unless we must
             c.setHeadString(p,nh)
+
+    c.selectPosition(parent)
 #@+node:tbrown.20100304090709.31081: ** loadDocstring
 def loadDocstring(file_path):
     try:
@@ -497,7 +632,7 @@ def run_recursive(c):
 
     c.__active_path['start_time'] = time.time()
     p = c.p
-    
+
     aList = [z.copy() for z in c.p.self_and_subtree()]
     for p2 in reversed(aList):
         if time.time() - c.__active_path['start_time'] >= c.__active_path['timeout']:
@@ -507,11 +642,12 @@ def run_recursive(c):
         yield p2
 
     c.redraw(p)
-#@+node:ville.20090223183051.1: ** act on node
-def cmd_ActOnNode(c, p=None, event=None):
+#@+node:ville.20090223183051.1: ** cmd_ActOnNode (active_path.py)
+@g.command('active-path-act-on-node')
+def cmd_ActOnNode(event, p=None):
     """ act_on_node handler for active_path.py
     """
-
+    c = event.get('c')
     # implementation mostly copied from onSelect
     if p is None:
         p = c.currentPosition()
@@ -521,7 +657,7 @@ def cmd_ActOnNode(c, p=None, event=None):
 
     if path:
         sync_node_to_folder(c,pos,path)
-        c.requestRedrawFlag = True
+        ### c.requestRedrawFlag = True
         c.redraw()
         return True
 
@@ -529,9 +665,10 @@ def cmd_ActOnNode(c, p=None, event=None):
         raise leoPlugins.TryNext
 
 active_path_act_on_node = cmd_ActOnNode
-#@+node:tbrown.20111207143354.19381: ** cmd_MakeDir
-def cmd_MakeDir(c):
-    
+#@+node:tbrown.20111207143354.19381: ** cmd_MakeDir (active_path.py)
+@g.command('active-path-make-dir')
+def cmd_MakeDir(event):
+    c = event.get('c')
     txt = g.app.gui.runAskOkCancelStringDialog(
         c, 'Directory name' ,'Directory name')
     if txt:
@@ -541,39 +678,45 @@ def cmd_MakeDir(c):
         c.selectPosition(nd)
         c.redraw()
     g.es("Path will be created if a file is saved on it")
-#@+node:tbrown.20080616153649.2: ** cmd_ShowCurrentPath
-def cmd_ShowCurrentPath(c):
+#@+node:tbrown.20080616153649.2: ** cmd_ShowCurrentPath (active_path.py)
+@g.command('active-path-show-current-path')
+def cmd_ShowCurrentPath(event):
     """Just show the path to the current file/directory node in the log pane."""
+    c = event.get('c')
     g.es(getPath(c, c.p))
-#@+node:tbrown.20100401100336.13608: ** cmd_LoadRecursive
-def cmd_LoadRecursive(c):
+#@+node:tbrown.20100401100336.13608: ** cmd_LoadRecursive (active_path.py)
+@g.command('active-path-load-recursive')
+def cmd_LoadRecursive(event):
     """Recursive update, with expansions."""
-
+    g.trace(event,g.callers())
+    c = event.get('c')
     for s in run_recursive(c):
         path = getPath(c, s)
         if path:
             sync_node_to_folder(c,s,path,updateOnly=True,recurse=True)
-#@+node:tbrown.20080619080950.16: ** cmd_UpdateRecursive
-def cmd_UpdateRecursive(c):
+#@+node:tbrown.20080619080950.16: ** cmd_UpdateRecursive (active_path.py)
+@g.command('active-path-update-recursive')
+def cmd_UpdateRecursive(event):
     """Recursive update, no new expansions."""
-
+    c = event.get('c')
     for s in run_recursive(c):
         path = getPath(c, s)
         if path:
             sync_node_to_folder(c,s,path,updateOnly=True)
-#@+node:tbrown.20091214212801.13475: ** cmd_SetNodeToAbsolutePathRecursive
-def cmd_SetNodeToAbsolutePathRecursive(c):
+#@+node:tbrown.20091214212801.13475: ** cmd_SetNodeToAbsolutePathRecursive (active_path.py)
+@g.command('active-path-set-node-to-absolute-path-recursive')
+def cmd_SetNodeToAbsolutePathRecursive(event):
     """Change "/dirname/" to "@path /absolute/path/to/dirname", recursively"""
-
+    c = event.get('c')
     for s in run_recursive(c):
         cmd_SetNodeToAbsolutePath(c, p=s)
-#@+node:tbrown.20080616153649.5: ** cmd_SetNodeToAbsolutePath
-def cmd_SetNodeToAbsolutePath(c, p=None):
+#@+node:tbrown.20080616153649.5: ** cmd_SetNodeToAbsolutePath (active_path.py)
+@g.command('active-path-set-node-to-absolute-path')
+def cmd_SetNodeToAbsolutePath(event,p=None):
     """Change "/dirname/" to "@path /absolute/path/to/dirname"."""
-
+    c = event.get('c')
     if not p:
         p = c.p
-
     path = getPath(c, p)
     d = p.h.split(None, 1)
     if len(d) > 1 and d[0].startswith('@'):
@@ -584,42 +727,50 @@ def cmd_SetNodeToAbsolutePath(c, p=None):
     else:
         type_ = "@auto "
     p.h = type_+path
-#@+node:tbrown.20080618141617.879: ** cmd_PurgeVanishedFiles
+#@+node:tbrown.20080618141617.879: ** cmd_PurgeVanishedFiles (active_path.py)
 def cond(p):
     return p.h.startswith('*') and p.h.endswith('*')
 
 def condunl(p):
-    return (isFileNode(p) and not p.b.strip()
-            or
-            isDirNode(p) and not p.hasChildren())
+    return (
+        isFileNode(p) and not p.b.strip() or
+        isDirNode(p) and not p.hasChildren())
 
 def dtor(p):
     # g.es(p.h)
     p.doDelete()
 
-def cmd_PurgeVanishedFilesHere(c):
+@g.command('active-path-purge-vanished-files-here')
+def cmd_PurgeVanishedFilesHere(event):
     """Remove files no longer present, i.e. "*filename*" entries."""
+    c = event.get('c')
     p = c.p.getParent()
     n = deleteChildren(p, cond, dtor=dtor)
     g.es('Deleted %d nodes' % n)
     c.redraw(p)
 
-def cmd_PurgeVanishedFilesRecursive(c):
+@g.command('active-path-purge-vanished-files-recursive')
+def cmd_PurgeVanishedFilesRecursive(event):
     """Remove files no longer present, i.e. "*filename*" entries."""
+    c = event.get('c')
     p = c.p
     n = deleteDescendents(p, cond, dtor=dtor)
     g.es('Deleted at least %d nodes' % n)
     c.redraw(p)
 
-def cmd_PurgeUnloadedFilesHere(c):
+@g.command('active-path-purge-unloaded-files-here')
+def cmd_PurgeUnloadedFilesHere(event):
     """Remove files never loaded, i.e. no kind of @file node."""
+    c = event.get('c')
     p = c.p.getParent()
     n = deleteChildren(p, condunl, dtor=dtor)
     g.es('Deleted %d nodes' % n)
     c.redraw(p)
 
-def cmd_PurgeUnloadedFilesRecursive(c):
+@g.command('active-path-purge-unloaded-files-recursive')
+def cmd_PurgeUnloadedFilesRecursive(event):
     """Remove files never loaded, i.e. no kind of @file node."""
+    c = event.get('c')
     p = c.p
     n = deleteDescendents(p, condunl, dtor=dtor)
     g.es('Deleted at least %d nodes' % n)
@@ -628,7 +779,6 @@ def cmd_PurgeUnloadedFilesRecursive(c):
 def deleteChildren(p, cond, dtor=None):
 
     cull = [child.copy() for child in p.children() if cond(child)]
-
     if cull:
         cull.reverse()
         for child in cull:
@@ -637,7 +787,6 @@ def deleteChildren(p, cond, dtor=None):
             else:
                 child.doDelete()
         return len(cull)
-
     return 0
 
 def deleteDescendents(p, cond, dtor=None, descendAnyway=False, _culls=0):
@@ -656,15 +805,12 @@ def deleteDescendents(p, cond, dtor=None, descendAnyway=False, _culls=0):
                 child.doDelete()
     return _culls
 
-#@+node:tbrown.20140308075026.27803: ** cmd_PickDir
-def cmd_PickDir(c):
+#@+node:tbrown.20140308075026.27803: ** cmd_PickDir (active_path.py)
+@g.command('active-path-pick-dir')
+def cmd_PickDir(event):
     """cmd_PickDir - Show user a folder picker to create
-    a new top level @path node
-
-    :Parameters:
-    - `c`: outline
     """
-
+    c = event.get('c')
     p = c.p
     aList = g.get_directives_dict_list(p)
     path = c.scanAtPathDirectives(aList)
@@ -675,7 +821,6 @@ def cmd_PickDir(c):
             nodepath = g.os_path_dirname(nodepath)
         if g.os_path_isdir(nodepath):  # append if it's a directory
             path = nodepath
-
     ocwd = os.getcwd()
     try:
         os.chdir(path)
@@ -683,14 +828,57 @@ def cmd_PickDir(c):
         g.es("Couldn't find path %s"%path)
     dir_ = g.app.gui.runOpenDirectoryDialog("Pick a folder", "Pick a folder")
     os.chdir(ocwd)
-    
     if not dir_:
         g.es("No folder selected")
         return
-    
     nd = c.p.insertAfter()
     nd.h = "@path %s" % dir_
     c.redraw()
+#@+node:tbnorth.20160122134156.1: ** cmd_MarkContent (active_path.py)
+@g.command('active-path-mark-content')
+def cmd_MarkContent(event):
+    """cmd_MarkContent - mark nodes in @path sub-tree with non-filesystem content
+
+    i.e. not organizer nodes (no body), subdirs (body starts with @path)
+    vanished file placeholders, or @<file> nodes.
+    """
+    c = event.get('c')
+    p = c.p
+
+    while not p.h.startswith("@path "):
+        p.moveToParent()
+        if not p:
+            g.es("Not in a @path tree")
+            return
+    c.unmarkAll()
+    def find_content(nd, count):
+        # pylint: disable=len-as-condition
+        if nd.isAnyAtFileNode():
+            return
+        content = True
+        if len(nd.b.strip()) == 0:
+            content = False
+        elif len(nd.b.strip().split('\n')) == 1 and nd.b.startswith('@path '):
+            content = False
+        if content:
+            nd.setMarked()
+            count[0] += 1
+        for child in nd.children():
+            find_content(child, count)
+    count = [0]
+    find_content(p, count)
+    g.es("%d content nodes marked" % count[0])
+    if count[0]:
+        c.redraw()
+#@+node:tbnorth.20160224113800.1: ** cmd_ToggleAutoLoad (active_path.py)
+@g.command('active-path-toggle-autoload')
+def cmd_ToggleAutoLoad(event):
+    """cmd_ToggleAutoLoad - toggle autoloading behavior
+    """
+    c = event.get('c')
+    c.__active_path['do_autoload'] = not c.__active_path['do_autoload']
+    g.es("Autoload: %s" % c.__active_path['do_autoload'])
+
 #@+node:tbrown.20080619080950.14: ** testing
 #@+node:tbrown.20080619080950.15: *3* makeTestHierachy
 files="""
@@ -710,7 +898,6 @@ c/
 2
 3
 """
-import os, shutil
 def makeTestHierachy(c):
 
     shutil.rmtree('active_directory_test')
@@ -719,7 +906,7 @@ def makeTestHierachy(c):
         if f.endswith('/'):
             os.makedirs(os.path.normpath(f))
         else:
-            file(os.path.normpath(f),'w')
+            open(os.path.normpath(f),'w')
 
 def deleteTestHierachy(c):
 
@@ -728,8 +915,10 @@ def deleteTestHierachy(c):
         if 'c/' in f and f.endswith('/'):
             shutil.rmtree(os.path.normpath(f))
         elif '2' in f:
-            try: os.remove(os.path.normpath(f))
-            except: pass  # already gone
+            try:
+                os.remove(os.path.normpath(f))
+            except Exception:
+                pass  # already gone
 
 if testing:
     cmd_MakeTestHierachy = makeTestHierachy

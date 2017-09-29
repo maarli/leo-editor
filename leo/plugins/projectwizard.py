@@ -12,7 +12,7 @@ import leo.core.leoGlobals as g
 
 # Fail gracefully if the gui is not qt.
 g.assertUi('qt')
-from leo.core.leoQt import QtCore
+# from leo.core.leoQt import QtCore
 
 #@+others
 #@+node:ville.20090614224528.8139: ** init
@@ -25,19 +25,17 @@ def init ():
     return ok
 #@+node:ville.20090614224528.8141: ** auto_walk() and g.command('projectwizard')
 def auto_walk(c, directory, parent=None, isroot=True):
-    """ source: http://leo.zwiki.org/CreateShadows
+    """
+    source: http://leo.zwiki.org/CreateShadows
 
     (create @auto files instead)
-
     """
-
     from os import listdir
     from os.path import join, abspath, basename, normpath, isfile
     from fnmatch import fnmatch
-    import os
+    # import os
 
     RELATIVE_PATHS = False
-
     patterns_to_ignore = ['*.pyc', '*.leo', '*.gif', '*.png', '*.jpg', '*.json']
     patterns_to_import = ['*.py','*.c', '*.cpp']
     match = lambda s: any(fnmatch(s, p) for p in patterns_to_ignore)
@@ -58,7 +56,7 @@ def auto_walk(c, directory, parent=None, isroot=True):
 
         path = join(directory, name)
 
-        if isfile(path) and not any(fnmatch(name, p) for p in patterns_to_import):           
+        if isfile(path) and not any(fnmatch(name, p) for p in patterns_to_import):
             continue
 
         if isfile(path):
@@ -91,7 +89,7 @@ def project_wizard(event):
     table = [("All files","*"),
         ("Python files","*.py"),]
 
-    fname = g.app.gui.runOpenFileDialog(
+    fname = g.app.gui.runOpenFileDialog(c,
         title = "Open",filetypes = table,defaultextension = ".leo")
 
     pth = os.path.dirname(os.path.abspath(fname))
@@ -104,7 +102,7 @@ def project_wizard(event):
     c.redraw()
 
 
-#project_wizard()    
+#project_wizard()
 #@+node:ville.20090910010217.5230: ** context menu import
 def rclick_path_importfile(c,p,menu):
     if not p.h.startswith('@path'):
@@ -113,18 +111,22 @@ def rclick_path_importfile(c,p,menu):
     def importfiles_rclick_cb():
         aList = g.get_directives_dict_list(p)
         path = c.scanAtPathDirectives(aList)
-
-        table = [("All files","*"),
-            ("Python files","*.py"),]
-        fnames = g.app.gui.runOpenFileDialog(
-            title = "Import files",filetypes = table, 
+        table = [
+            ("All files","*"),
+            ("Python files","*.py"),
+        ]
+        # This is incomplete: files is not used.
+        # files = g.app.gui.runOpenFileDialog(c,
+        g.app.gui.runOpenFileDialog(c,
+            title = "Import files",
+            filetypes = table,
             defaultextension = '.notused',
             multiple=True)
-
         print("import files from",path)
 
     action = menu.addAction("Import files")
-    action.connect(action, QtCore.SIGNAL("triggered()"), importfiles_rclick_cb)        
+    ### action.connect(action, QtCore.SIGNAL("triggered()"), importfiles_rclick_cb)
+    action.triggered.connect(importfiles_rclick_cb)
 
 def install_contextmenu_handlers():
     """ Install all the wanted handlers (menu creators) """

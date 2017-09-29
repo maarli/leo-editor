@@ -9,45 +9,87 @@ By Jacob M. Peck
 API
 ===
 
-This plugin registers a controller object to c.theTagController, which provides the following API::
-    
-    tc = c.theTagController   
-    tc.get_all_tags() # return a list of all tags used in the current outline, automatically updated to be consistent
-    tc.get_tagged_nodes('foo') # return a list of positions tagged 'foo'
-    tc.get_tags(p) # return a list of tags applied to the node at position p; returns [] if node has no tags
-    tc.add_tag(p, 'bar') # add the tag 'bar' to the node at position p
-    tc.remove_tag(p, 'baz') # remove the tag 'baz' from p if it is in the tag list
+This plugin registers a controller object to c.theTagController, which provides
+the following API::
+
+    tc = c.theTagController
+    tc.get_all_tags()
+        return a list of all tags used in the current outline,
+        automatically updated to be consistent
+    tc.get_tagged_nodes('foo')
+        return a list of positions tagged 'foo'
+    tc.get_tags(p)
+        return a list of tags applied to the node at position p.
+        returns [] if node has no tags
+    tc.add_tag(p, 'bar')
+        add the tag 'bar' to the node at position p
+    tc.remove_tag(p, 'baz')
+        remove the tag 'baz' from p if it is in the tag list
 
 Internally, tags are stored in `p.v.unknownAttributes['__node_tags']` as a set.
 
 UI
 ==
 
-The "Tags" tab in the Log pane is the UI for this plugin.  The bar at the top is a search bar, editable to allow complex search queries.  It is pre-populated with all existing tags in the outline, and remembers your custom searches within the given session.  It also acts double duty as an input box for the add (+) button, which adds the contents of the search bar as a tag to the currently selected node.
+The "Tags" tab in the Log pane is the UI for this plugin. The bar at the top is
+a search bar, editable to allow complex search queries. It is pre-populated with
+all existing tags in the outline, and remembers your custom searches within the
+given session. It also acts double duty as an input box for the add (+) button,
+which adds the contents of the search bar as a tag to the currently selected
+node.
 
-The list box in the middle is a list of headlines of nodes which contain the tag(s) defined by the current search string.  These are clickable, and doing so will center the focus in the outline pane on the selected node.
+The list box in the middle is a list of headlines of nodes which contain the
+tag(s) defined by the current search string. These are clickable, and doing so
+will center the focus in the outline pane on the selected node.
 
-Below the list box is a dynamic display of tags on the currently selected node.  Left-clicking on any of these will populate the search bar with that tag, allowing you to explore similarly tagged nodes.  Right-clicking on a tag will remove it from the currently selected node.
+Below the list box is a dynamic display of tags on the currently selected node.
+Left-clicking on any of these will populate the search bar with that tag,
+allowing you to explore similarly tagged nodes. Right-clicking on a tag will
+remove it from the currently selected node.
 
 The status line at the bottom is purely informational.
 
-The tag browser has set-algebra querying possible.  Users may search for strings like 'foo&bar', to get nodes with both tags foo and bar, or 'foo|bar' to get nodes with either or both.  Set difference (-) and symmetric set difference (^) are supported as well.  These queries are left-associative, meaning they are read from left to right, with no other precedence.  Parentheses are not supported.  See below for more details.
+The tag browser has set-algebra querying possible. Users may search for strings
+like 'foo&bar', to get nodes with both tags foo and bar, or 'foo|bar' to get
+nodes with either or both. Set difference (-) and symmetric set difference (^)
+are supported as well. These queries are left-associative, meaning they are read
+from left to right, with no other precedence. Parentheses are not supported.
+Additionally, regular expression support is included, and tag hierarchies can be
+implemented with wildcards. See below for more details.
 
 Searching
 ---------
 
-Searching on tags in the UI is based on set algebra.  The following syntax is used::
-    
+Searching on tags in the UI is based on set algebra. The following syntax is
+used::
+
     <tag>&<tag> - return nodes tagged with both the given tags
     <tag>|<tag> - return nodes tagged with either of the given tags (or both)
     <tag>-<tag> - return nodes tagged with the first tag, but not the second tag
     <tag>^<tag> - return nodes tagged with either of the given tags (but *not* both)
 
-These may be combined, and are applied left-associatively, building the set from the left, such that the query `foo&bar^baz` will return only nodes tagged both 'foo' and 'bar', or nodes tagged with 'baz', but *not* tagged with all three.
+These may be combined, and are applied left-associatively, building the set from
+the left, such that the query `foo&bar^baz` will return only nodes tagged both
+'foo' and 'bar', or nodes tagged with 'baz', but *not* tagged with all three.
+
+Additionally, the search string may be any valid regular expression, meaning you
+can search using wildcards (*), and using this, you can create tag hierarchies,
+for example 'work/priority' and 'work/long-term'. Searching for 'work/*' would
+return all nodes tagged with either 'work/priority' or 'work/long-term'.
+
+Please note that this plugin automatically replaces '*' with '.*' in your search
+string to produce python-friendly regular expressions. This means nothing to the
+end-user, except that '*' can be used as a wildcard freely, as one expects.
 
 Tag Limitations
 ---------------
-The API is unlimited in tagging abilities.  If you do not wish to use the UI, then the API may be used to tag nodes with any arbitrary strings.  The UI, however, due to searching capabilities, may *not* be used to tag (or search for) nodes with tags containing the special search characters, `&|-^`.  The UI also cannot search for tags of zero-length, and it automatically removes surrounding whitespace (calling .strip()).
+
+The API is unlimited in tagging abilities. If you do not wish to use the UI,
+then the API may be used to tag nodes with any arbitrary strings. The UI,
+however, due to searching capabilities, may *not* be used to tag (or search for)
+nodes with tags containing the special search characters, `&|-^`. The UI also
+cannot search for tags of zero-length, and it automatically removes surrounding
+whitespace (calling .strip()).
 '''
 #@-<< docstring >>
 #@+<< imports >>
@@ -58,7 +100,7 @@ import re
 from leo.core.leoQt import QtWidgets, QtCore
 #@-<< imports >>
 #@+others
-#@+node:peckj.20140804103733.9244: ** init
+#@+node:peckj.20140804103733.9244: ** init (nodetags.py)
 def init ():
     '''Return True if the plugin has loaded successfully.'''
     if g.app.gui is None:
@@ -68,20 +110,20 @@ def init ():
         #g.registerHandler(('new','open2'),onCreate)
         g.registerHandler('after-create-leo-frame',onCreate)
         g.plugin_signon(__name__)
-    else:
+    elif g.app.gui.guiName() != 'curses':
         g.es('Plugin %s not loaded.' % __name__, color='red')
     return ok
 #@+node:peckj.20140804103733.9245: ** onCreate
 def onCreate (tag, keys):
-    
+
     c = keys.get('c')
     if not c: return
-    
+
     theTagController = TagController(c)
     c.theTagController = theTagController
 
 #@+node:peckj.20140804103733.9246: ** class TagController
-class TagController:
+class TagController(object):
     #@+others
     #@+node:peckj.20140804103733.9266: *3* initialization
     #@+node:peckj.20140804103733.9262: *4* __init__
@@ -114,42 +156,66 @@ class TagController:
         if tag not in self.taglist:
             self.taglist.append(tag)
         nodelist = self.get_tagged_nodes(tag)
-        if len(nodelist) == 0:
+        if not nodelist:
             self.taglist.remove(tag)
         self.ui.update_all()
     #@+node:peckj.20140804103733.9258: *4* get_tagged_nodes
     def get_tagged_nodes(self, tag):
-        ''' return a list of positions of nodes containing the tag '''
+        ''' return a list of positions of nodes containing the tag, with * as a wildcard '''
         nodelist = []
+
+        # replace * with .* for regex compatibility
+        tag = tag.replace('*', '.*')
+
+        regex = re.compile(tag)
+
         for node in self.c.all_unique_nodes():
-            p = self.c.vnode2position(node)
-            if tag in self.get_tags(p):
-                nodelist.append(p)
+            #p = self.c.vnode2position(node)
+            for t in self.get_tags(node):
+                if regex.match(t):
+                    nodelist.append(node)
+                    break
+
         return nodelist
+    #@+node:vitalije.20170811150914.1: *4* get_tagged_gnxes
+    def get_tagged_gnxes(self, tag):
+        c = self.c
+
+        tag = tag.replace('*', '.*')
+
+        regex = re.compile(tag)
+
+        for v in c.all_unique_nodes():
+            for t in self.get_tags(v):
+                if regex.match(t):
+                    yield v.gnx
     #@+node:peckj.20140804103733.9265: *3* individual nodes
     #@+node:peckj.20140804103733.9259: *4* get_tags
-    def get_tags(self, p):
-        ''' returns a list of tags applied to p '''
-        tags = p.v.u.get(self.TAG_LIST_KEY, set([]))
-        return list(tags)
+    def get_tags(self, v):
+        ''' returns a list of tags applied to v '''
+        if v:
+            tags = v.u.get(self.TAG_LIST_KEY, set([]))
+            return list(tags)
+        else:
+            return []
     #@+node:peckj.20140804103733.9260: *4* add_tag
-    def add_tag(self, p, tag):
-        ''' adds 'tag' to the taglist of p '''
-        tags = p.v.u.get(self.TAG_LIST_KEY, set([]))
+    def add_tag(self, v, tag):
+        ''' adds 'tag' to the taglist of v '''
+        tags = v.u.get(self.TAG_LIST_KEY, set([]))
         tags.add(tag)
-        p.v.u[self.TAG_LIST_KEY] = tags
+        v.u[self.TAG_LIST_KEY] = tags
         self.c.setChanged(True)
         self.update_taglist(tag)
     #@+node:peckj.20140804103733.9261: *4* remove_tag
-    def remove_tag(self, p, tag):
-        ''' removes 'tag' from the taglist of p '''
-        tags = p.v.u.get(self.TAG_LIST_KEY, set([]))
+    def remove_tag(self, v, tag):
+        ''' removes 'tag' from the taglist of v '''
+        tags = v.u.get(self.TAG_LIST_KEY, set([]))
         if tag in tags:
             tags.remove(tag)
-        if len(tags) == 0:
-            del p.v.u[self.TAG_LIST_KEY] # prevent a few corner cases, and conserve disk space
+        if tags:
+            v.u[self.TAG_LIST_KEY] = tags
         else:
-            p.v.u[self.TAG_LIST_KEY] = tags
+            del v.u[self.TAG_LIST_KEY] # prevent a few corner cases, and conserve disk space
         self.c.setChanged(True)
         self.update_taglist(tag)
     #@-others
@@ -169,62 +235,63 @@ class LeoTagWidget(QtWidgets.QWidget):
         self.search_re = '(&|\||-|\^)'
         self.custom_searches = []
         g.registerHandler('select2', self.select2_hook)
+        g.registerHandler('create-node', self.command2_hook) # fix tag jumplist positions after new node insertion
         g.registerHandler('command2', self.command2_hook)
     #@+node:peckj.20140804114520.15202: *4* initUI
     def initUI(self):
         # create GUI components
         ## this code is atrocious... don't look too closely
         self.setObjectName("LeoTagWidget")
-        
+
         # verticalLayout_2: contains
         # verticalLayout
         self.verticalLayout_2 = QtWidgets.QVBoxLayout(self)
         self.verticalLayout_2.setContentsMargins(0,1,0,1)
-        self.verticalLayout_2.setObjectName("verticalLayout_2")
-        
+        self.verticalLayout_2.setObjectName("nodetags-verticalLayout_2")
+
         # horizontalLayout: contains
         # "Refresh" button
         # comboBox
         self.horizontalLayout = QtWidgets.QHBoxLayout()
         self.horizontalLayout.setContentsMargins(0,0,0,0)
-        self.horizontalLayout.setObjectName("horizontalLayout")
-        
+        self.horizontalLayout.setObjectName("nodetags-horizontalLayout")
+
         # horizontalLayout2: contains
         # label2
         # not much by default -- it's a place to add buttons for current tags
         self.horizontalLayout2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout2.setContentsMargins(0,0,0,0)
-        self.horizontalLayout2.setObjectName("horizontalLayout2")
+        self.horizontalLayout2.setObjectName("nodetags-horizontalLayout2")
         label2 = QtWidgets.QLabel(self)
-        label2.setObjectName("label2")
+        label2.setObjectName("nodetags-label2")
         label2.setText("Tags for current node:")
         self.horizontalLayout2.addWidget(label2)
-        
+
         # verticalLayout: contains
         # horizontalLayout
         # listWidget
         # horizontalLayout2
         # label
         self.verticalLayout = QtWidgets.QVBoxLayout()
-        self.verticalLayout.setObjectName("verticalLayout")
-        
+        self.verticalLayout.setObjectName("nodetags-verticalLayout")
+
         self.comboBox = QtWidgets.QComboBox(self)
-        self.comboBox.setObjectName("comboBox")
+        self.comboBox.setObjectName("nodetags-comboBox")
         self.comboBox.setEditable(True)
         self.horizontalLayout.addWidget(self.comboBox)
-        
+
         self.pushButton = QtWidgets.QPushButton("+", self)
-        self.pushButton.setObjectName("pushButton")
+        self.pushButton.setObjectName("nodetags-pushButton")
         self.pushButton.setMinimumSize(24,24)
         self.pushButton.setMaximumSize(24,24)
         self.horizontalLayout.addWidget(self.pushButton)
         self.verticalLayout.addLayout(self.horizontalLayout)
         self.listWidget = QtWidgets.QListWidget(self)
-        self.listWidget.setObjectName("listWidget")
+        self.listWidget.setObjectName("nodetags-listWidget")
         self.verticalLayout.addWidget(self.listWidget)
         self.verticalLayout.addLayout(self.horizontalLayout2)
         self.label = QtWidgets.QLabel(self)
-        self.label.setObjectName("label")
+        self.label.setObjectName("nodetags-label")
         self.label.setText("Total: 0 items")
         self.verticalLayout.addWidget(self.label)
         self.verticalLayout_2.addLayout(self.verticalLayout)
@@ -238,11 +305,13 @@ class LeoTagWidget(QtWidgets.QWidget):
     #@+node:peckj.20140804114520.15204: *3* updates + interaction
     #@+node:peckj.20140804114520.15205: *4* item_selected
     def item_selected(self):
+        c = self.c
         key = id(self.listWidget.currentItem())
-        pos = self.mapping[key]
-        self.update_current_tags(pos)
-        self.c.selectPosition(pos)
-        self.c.redraw_now()
+        v = self.mapping[key]
+        self.update_current_tags(v)
+        pos = c.vnode2position(v)
+        c.selectPosition(pos)
+        c.redraw()
     #@+node:peckj.20140804192343.6568: *5* update_current_tags
     def update_current_tags(self,pos):
         # clear out the horizontalLayout2
@@ -251,17 +320,18 @@ class LeoTagWidget(QtWidgets.QWidget):
             child = hl2.takeAt(0)
             child.widget().deleteLater()
         label = QtWidgets.QLabel(self)
+        label.setObjectName("nodetags-label2")
         label.setText('Tags for current node:')
         hl2.addWidget(label)
-        
         tags = self.tc.get_tags(pos)
         # add tags
         for tag in tags:
             l = QtWidgets.QLabel(self)
             l.setText(tag)
+            l.setObjectName('nodetags-label3')
             hl2.addWidget(l)
             l.mouseReleaseEvent = self.callback_factory(tag)
-        
+
     #@+node:peckj.20140804194839.6569: *6* callback_factory
     def callback_factory(self, tag):
         c = self.c
@@ -271,7 +341,7 @@ class LeoTagWidget(QtWidgets.QWidget):
             ui = tc.ui
             # right click on a tag to remove it from the node
             if event.button() == QtCore.Qt.RightButton:
-                tc.remove_tag(p,tag)
+                tc.remove_tag(p.v,tag)
             # other clicks make the jumplist open that tag for browsing
             else:
                 idx = ui.comboBox.findText(tag)
@@ -284,31 +354,31 @@ class LeoTagWidget(QtWidgets.QWidget):
         tags = self.tc.get_all_tags()
         self.comboBox.addItems(tags)
         self.comboBox.addItems(self.custom_searches)
-        
+
     #@+node:peckj.20140804114520.15207: *4* update_list
     def update_list(self):
+        c = self.c; gnxDict = c.fileCommands.gnxDict
         key = str(self.comboBox.currentText()).strip()
         current_tags = self.tc.get_all_tags()
         if key not in current_tags and key not in self.custom_searches:
             if len(re.split(self.search_re, key)) > 1:
                 self.custom_searches.append(key)
-        
+
         query = re.split(self.search_re, key)
-        
         tags = []
         operations = []
-        for i in range(len(query)):
+        for i, s in enumerate(query):
             if i % 2 == 0:
-                tags.append(query[i].strip())
+                tags.append(s.strip())
             else:
-                operations.append(query[i].strip())
+                operations.append(s.strip())
         tags.reverse()
         operations.reverse()
-        
-        resultset = set(self.tc.get_tagged_nodes(tags.pop()))
-        while len(operations) > 0:
+
+        resultset = set(self.tc.get_tagged_gnxes(tags.pop()))
+        while operations:
             op = operations.pop()
-            nodes = set(self.tc.get_tagged_nodes(tags.pop()))
+            nodes = set(self.tc.get_tagged_gnxes(tags.pop()))
             if op == '&':
                 resultset &= nodes
             elif op == '|':
@@ -320,7 +390,8 @@ class LeoTagWidget(QtWidgets.QWidget):
 
         self.listWidget.clear()
         self.mapping = {}
-        for n in resultset:
+        for gnx in resultset:
+            n = gnxDict[gnx]
             item = QtWidgets.QListWidgetItem(n.h)
             self.listWidget.addItem(item)
             self.mapping[id(item)] = n
@@ -332,11 +403,11 @@ class LeoTagWidget(QtWidgets.QWidget):
         ''' updates the tag GUI '''
         key = str(self.comboBox.currentText())
         self.update_combobox()
-        if len(key) > 0:
+        if key:
             idx = self.comboBox.findText(key)
             if idx == -1: idx = 0
         else:
-            idx = 0 
+            idx = 0
         self.comboBox.setCurrentIndex(idx)
         self.update_list()
         self.update_current_tags(self.c.p)
@@ -344,13 +415,13 @@ class LeoTagWidget(QtWidgets.QWidget):
     def add_tag(self, event=None):
         p = self.c.p
         tag = str(self.comboBox.currentText()).strip()
-        if len(tag) == 0:
+        if not tag:
             return # no error message, probably an honest mistake
         elif len(re.split(self.search_re,tag)) > 1:
             g.es('Cannot add tags containing any of these characters: &|^-', color='red')
             return # don't add unsearchable tags
         else:
-            self.tc.add_tag(p,tag)
+            self.tc.add_tag(p.v,tag)
     #@+node:peckj.20140811082039.6623: *3* event hooks
     #@+node:peckj.20140804195456.13487: *4* select2_hook
     def select2_hook(self, tag, keywords):
@@ -361,11 +432,9 @@ class LeoTagWidget(QtWidgets.QWidget):
         paste_cmds = ['paste-node',
                       'pasteOutlineRetainingClones', # strange that this one isn't canonicalized
                       'paste-retaining-clones']
-        if keywords.get('label') not in paste_cmds:
-            return
-        
-        self.tc.initialize_taglist()
-        self.update_all()
+        if keywords.get('label') in paste_cmds:
+            self.tc.initialize_taglist()
+            self.update_all()
     #@-others
 #@-others
 #@@language python

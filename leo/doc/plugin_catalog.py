@@ -8,7 +8,7 @@
 Extract plugin status and docs. from docstrings
 
 :last_update: 20100301
-:plugin_status: inital development
+:plugin_status: initial development
 :gui: qt
 :maintainer: terry_n_brown@yahoo.com
 
@@ -63,7 +63,7 @@ try:
     from docutils.transforms.parts import Contents
     from docutils.utils import SystemMessage
 except Exception:
-    sys.stderr.write('plugin_catelog.py: can not import docutils\n')
+    sys.stderr.write('plugin_catalog.py: can not import docutils\n')
     ok = False
 #@-<< imports >>
 
@@ -258,7 +258,7 @@ class PluginCatalog(object):
         parser.add_option("--css-file", type="string",
             help="Use this CSS file in the HTML output")
         parser.add_option("--max-files", type="int",
-            help="Stope after this many files, mainly for testing")
+            help="Stop after this many files, mainly for testing")
         parser.add_option("--include-contents", action="store_true", 
             default=False,
             help="Include table of contents (the summary is more useful)")

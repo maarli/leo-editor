@@ -2,50 +2,61 @@
 #@+node:tbrown.20140801105909.47549: * @file importers/ctext.py
 #@@language python
 #@@tabwidth -4
+import leo.plugins.importers.linescanner as linescanner
+Importer = linescanner.Importer
 #@+others
-#@+node:tbrown.20140801105909.47550: ** ctext declarations
-import time
-# import leo.core.leoGlobals as g
-from leo.plugins.importers.basescanner import BaseScanner
-
-#@+node:tbrown.20140801105909.47551: ** class CTextScanner
-class CTextScanner(BaseScanner):
+#@+node:tbrown.20140801105909.47551: ** class CText_Importer
+class CText_Importer(Importer):
+    #@+<< ctext docstring >>
+    #@+node:ekr.20161130053507.1: *3* << ctext docstring >>
     """
     Read/Write simple text files with hierarchy embedded in headlines::
-        
+
         Leading text in root node of subtree
-        
+
         Etc. etc.
-        
+
         ### A level one node #####################################
-        
+
         This would be the text in this level one node.
-        
+
         And this.
-        
+
         ### Another level one node ###############################
-        
+
         Another one
-        
+
         #### A level 2 node ######################################
-        
+
         See what we did there - one more '#' - this is a subnode.
-        
+
     Leading / trailing whitespace may not be preserved.  '-' and '/'
     are used in place of '#' for SQL and JavaScript.
-        
-    """
-    #@+others
-    #@+node:tbrown.20140801105909.47552: *3* write_lines
 
+    """
+    #@-<< ctext docstring >>
+    #@+others
+    #@+node:ekr.20161130053335.1: *3* ctext_i.__init__
+    def __init__(self, importCommands):
+        '''Ctor for CoffeeScriptScanner class.'''
+        Importer.__init__(self,
+            importCommands,
+            language = 'ctext',
+            state_class = None,
+            strict = False
+        )
+        self.fileType = importCommands.fileType
+    #@+node:tbrown.20140801105909.47552: *3* ctext_i.write_lines
     def write_lines(self, node, lines):
         """write the body lines to body normalizing whitespace"""
-        node.b = '\n'.join(lines).strip('\n')+'\n'
+        node.b = '\n'.join(lines).strip('\n') + '\n'
         lines[:] = []
-
-    #@+node:tbrown.20140801105909.47553: *3* run
-    def run(self,s,parent,parse_body=False,prepass=False):
-        
+    #@+node:tbrown.20140801105909.47553: *3* ctext_i.run
+    def run(self, s, parent, parse_body=False):
+        '''Override Importer.run()'''
+        c = self.c
+        root = parent.copy()
+        changed = c.isChanged()
         cchar = '#'
         if self.fileType.lower() == '.tex':
             cchar = '%'
@@ -53,13 +64,11 @@ class CTextScanner(BaseScanner):
             cchar = '-'
         if self.fileType.lower() == '.js':
             cchar = '/'
-
         level = -1
         nd = parent.copy()
-        start = time.time()
         lines = []
         for line in s.split('\n'):
-            if line.startswith(cchar*3):
+            if line.startswith(cchar * 3):
                 word = line.split()
                 if word[0].strip(cchar) == '':
                     self.write_lines(nd, lines)
@@ -68,27 +77,28 @@ class CTextScanner(BaseScanner):
                         # go down one level
                         level = new_level
                         nd = nd.insertAsLastChild()
-                        nd.h = ' '.join(word[1:]).strip(cchar+' ')
+                        nd.h = ' '.join(word[1:]).strip(cchar + ' ')
                     else:
                         # go up zero or more levels
                         while level > new_level and level > 0:
                             level -= 1
                             nd = nd.parent()
                         nd = nd.insertAfter()
-                        nd.h = ' '.join(word[1:]).strip(cchar+' ')
+                        nd.h = ' '.join(word[1:]).strip(cchar + ' ')
             else:
                 lines.append(line)
-                
         self.write_lines(nd, lines)
-                
-        # g.es("CText import in %s" % (time.time()-start))
-
+        # It's always useless for an an import to dirty the outline.
+        for p in root.self_and_subtree():
+            p.clearDirty()
+        c.setChanged(changed)
         return True
-
     #@-others
 #@-others
 importer_dict = {
     '@auto': ['@auto-ctext',],
-    'class': CTextScanner,
+    'class': CText_Importer,
 }
+#@@language python
+#@@tabwidth -4
 #@-leo

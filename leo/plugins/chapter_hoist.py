@@ -13,13 +13,9 @@ Requires at least version 0.19 of mod_scripting.
 
 """
 #@-<< docstring >>
-
 import leo.core.leoGlobals as g
-
 from leo.plugins.mod_scripting import scriptingController
-
 __version__ = "0.5"
-
 #@+<< version history >>
 #@+node:ekr.20060328125925.3: ** << version history >>
 #@+at
@@ -31,7 +27,6 @@ __version__ = "0.5"
 #          Among other things, this creates the save-hoist commnand.
 # 0.5 EKR: Made gui-independent.
 #@-<< version history >>
-
 #@+others
 #@+node:ekr.20060328125925.4: ** init
 def init ():
@@ -43,16 +38,13 @@ def init ():
     return True
 #@+node:ekr.20060328125925.5: ** onCreate
 def onCreate (tag, keys):
-
     """Handle the onCreate event in the chapterHoist plugin."""
-
     c = keys.get('c')
-
     if c:
         sc = scriptingController(c)
-        ch = chapterHoist(sc,c)
+        chapterHoist(sc,c)
 #@+node:ekr.20060328125925.6: ** class chapterHoist
-class chapterHoist:
+class chapterHoist(object):
     #@+others
     #@+node:ekr.20060328125925.7: *3*  ctor
     def __init__ (self,sc,c):
@@ -66,6 +58,7 @@ class chapterHoist:
             c.hoist()
 
         b = sc.createIconButton(
+            args=None,
             text='save-hoist',
             command = saveHoistCallback,
             statusLine='Create hoist button current node')
@@ -78,7 +71,11 @@ class chapterHoist:
             c.dehoist()
             return 'break'
 
+        # Fix #426 with a kludge that satisfies k.registerCommand.
+        dehoistCallback.__name__ = 'wrapper: dehoist'
+
         b = sc.createIconButton(
+            args=None,
             text='dehoist',
             command=dehoistCallback,
             statusLine='Dehoist')
@@ -87,7 +84,7 @@ class chapterHoist:
     #@+node:ekr.20060328125925.10: *3* createChapterHoistButton
     def createChapterHoistButton (self,sc,c,p):
 
-        '''Generates a hoist button for the headline at the given position'''    
+        '''Generates a hoist button for the headline at the given position'''
         h = p.h
         buttonText = sc.getButtonText(h)
         statusLine = "Hoist %s" % h
@@ -99,7 +96,8 @@ class chapterHoist:
             c.hoist()
             return 'break'
 
-        b = sc.createIconButton(
+        sc.createIconButton(
+            args=None,
             text=buttonText,
             command=hoistButtonCallback,
             statusLine=statusLine)

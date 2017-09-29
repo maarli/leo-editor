@@ -1,17 +1,17 @@
 #@+leo-ver=5-thin
 #@+node:ekr.20040910070811.1: * @file run_nodes.py
 #@+<< docstring >>
-#@+node:ekr.20050912181956: ** << docstring >>
+#@+node:ekr.20050912181956: ** << docstring >> (run_nodes.py)
 r''' Runs a program and interface Leo through its input/output/error streams.
 
-Double clicking the icon box whose headlines are @run 'cmd args' will execute
+The double-click-icon-box command on a node whose headlines is @run 'cmd args' will execute
 the command. There are several other features, including @arg and @input nodes.
 
 The run_nodes.py plugin introduce two new nodes that transform leo into a
 terminal. It was mostly intended to run compilers and debuggers while having the
 possibility to send messages to the program.
 
-Double clicking on the icon of an node whose headline is @run <command> <args>
+The double-click-icon-box command on a node whose headline is @run <command> <args>
 will launch <command> with the given arguments. It will also mark the node. #
 Terminates the argument list. @run # <comment> is also valid.
 
@@ -104,7 +104,7 @@ OwnIdleHook = False
 #@-<< globals >>
 
 #@+others
-#@+node:ekr.20060108160737: ** init
+#@+node:ekr.20060108160737: ** init (run_nodes.py)
 def init ():
     '''Return True if the plugin has loaded successfully.'''
     g.registerHandler("bodykey2",OnBodyKey)
@@ -125,8 +125,8 @@ def OnBodyKey(tag,keywords):
     h=p.h
     ch=keywords.get("ch")
 
-    # handle the @run "\r" body key	
-    if ch == "\r" and g.match_word(h,0,"@run") and RunNode != None and RunNode==p:
+    # handle the @run "\r" body key
+    if ch == "\r" and g.match_word(h,0,"@run") and RunNode and RunNode==p:
         try:
             In.write(p.b.encode(Encoding))
             In.flush()
@@ -143,7 +143,7 @@ def OnIconDoubleClick(tag,keywords):
     c=keywords.get('c')
     if not c or not c.exists: return
     p = c.p
-    
+
     # g.trace(c.shortFileName())
 
     h = p.h
@@ -159,11 +159,11 @@ def OnIconDoubleClick(tag,keywords):
                 if g.match_word(p2.h,0,"@run"):
                     # g.trace(p2.h)
                     # 2009/10/30: don't use iter copy arg.
-                    RunList.append(p2.copy())	
+                    RunList.append(p2.copy())
 
             ExitCode = None
             OwnIdleHook = True
-            g.enableIdleTimeHook(idleTimeDelay=100)
+            ### g.enableIdleTimeHook()
             #@-<< handle double click in @run icon >>
     elif g.match_word(h,0,"@in"):
         if RunNode:
@@ -189,19 +189,19 @@ def OnIdle(tag,keywords):
     if not c or not c.exists: return
 
     if not OwnIdleHook: return
-    
+
     # g.trace(c.shortFileName())
 
     if RunNode:
         o = UpdateText(OutThread)
         e = UpdateText(ErrThread,"red")
         if not o and not e:
-            CloseProcess(c)	
+            CloseProcess(c)
     elif RunList:
         fn = RunList[0]
         del RunList[0]
         if fn and ExitCode is None:
-            OpenProcess(fn)					
+            OpenProcess(fn)
     else:
         OwnIdleHook = False
         g.disableIdleTimeHook()
@@ -232,7 +232,7 @@ class readingThread(threading.Thread):
     #@+others
     #@+node:ekr.20040910070811.7: *3* run
     def run(self):
-        
+
         '''Called automatically when the thread is created.'''
 
         global Encoding
@@ -268,7 +268,7 @@ def CloseProcess(c):
     RunNode = None
 
     # Reset the working dir.
-    if WorkDir != None:
+    if WorkDir is not None:
         os.chdir(WorkDir)
         WorkDir = None
 
@@ -276,7 +276,7 @@ def CloseProcess(c):
     if ExitCode is None:
         g.blue("@run done")
     else:
-        g.error("@run exits with code: %s" % (str(ExitCode)))	
+        g.error("@run exits with code: %s" % (str(ExitCode)))
 
     # Redraw.
     c.redraw()
@@ -287,7 +287,7 @@ def FindRunChildren(p):
 
     for child in p.children():
         if g.match_word(child.h,0,"@run"):
-            RunList.append(child)	
+            RunList.append(child)
         FindRunChildren(child)
 #@+node:ekr.20040910070811.10: ** OpenProcess
 def OpenProcess(p):
@@ -351,22 +351,22 @@ def OpenProcess(p):
 
     # Start the threads and open the pipe.
     OutThread = readingThread()
-    ErrThread = readingThread()		
-				
+    ErrThread = readingThread()
+
     # In,OutThread.File,ErrThread.File	= os.popen3(command,"t")
     #### OutThread.File,In,ErrThread.File = os.popen3(command,"t")
-    
-    PIPE = subprocess.PIPE
-    proc = subprocess.Popen(command, shell=True) # , # bufsize=bufsize,
-    #     stdin=PIPE,stdout=PIPE,stderr=PIPE) # ,close_fds=True)
-        
+
+    # PIPE = subprocess.PIPE
+    proc = subprocess.Popen(command, shell=True)
+        # bufsize=bufsize,
+        # stdin=PIPE,
+        # stdout=PIPE,
+        # stderr=PIPE) ,close_fds=True)
     In             = proc.stdin
     OutThread.File = proc.stdout
     ErrThread.File = proc.stderr
-    	
     OutThread.start()
-    ErrThread.start()	
-
+    ErrThread.start()
     # Mark and select the node.
     RunNode.setMarked()
     c = RunNode.v.context
@@ -380,13 +380,12 @@ def UpdateText(t,wcolor="black"):
 
     if t.TextLock.acquire(0) == 1:
         if t.Text:
-            if t.Text != "\n":				
+            if t.Text != "\n":
                 g.es(t.Text,color=wcolor)
             t.Text=""
-        else:
-            if t.isAlive() == False:
-                t.TextLock.release()
-                return False
+        elif not t.isAlive():
+            t.TextLock.release()
+            return False
         t.TextLock.release()
 
     return True

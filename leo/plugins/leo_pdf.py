@@ -5,7 +5,7 @@
 #@@first
 #@@first
 
-''' This NOT a Leo plugin: this is a docutils writer for .pdf files.  
+''' This NOT a Leo plugin: this is a docutils writer for .pdf files.
 
 That file uses the reportlab module to convert html markup to pdf.
 
@@ -97,13 +97,13 @@ Rewritten by Edward K. Ream for the Leo rst3 plugin.
 #	are permitted provided that the following conditions are met:
 #
 #		*	Redistributions of source code must retain the above copyright notice,
-#			this list of conditions and the following disclaimer. 
+#			this list of conditions and the following disclaimer.
 #		*	Redistributions in binary form must reproduce the above copyright notice,
 #			this list of conditions and the following disclaimer in the documentation
-#			and/or other materials provided with the distribution. 
+#			and/or other materials provided with the distribution.
 #		*	Neither the name of the company nor the names of its contributors may be
 #			used to endorse or promote products derived from this software without
-#			specific prior written permission. 
+#			specific prior written permission.
 #
 #	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 #	ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -241,11 +241,9 @@ __docformat__ = 'reStructuredText'
 #@+<< imports >>
 #@+node:ekr.20090704103932.5162: ** << imports >>
 import sys
-sys.path.append(r'c:\reportlab_1_20') 
+sys.path.append(r'c:\reportlab_1_20')
 
-if 1: # This dependency could easily be removed.
-    # Used only for tracing and error reporting.
-    import leo.core.leoGlobals as g
+import leo.core.leoGlobals as g
 try:
     import docutils
 except ImportError:
@@ -259,7 +257,7 @@ try:
 except ImportError:
     print('leo_pdf.py: can not import reportlab.platypus')
     reportlab = None
-    raise
+    # raise
 try:
     #copyright ReportLab Inc. 2000
     #see rllicense.txt for license details
@@ -270,14 +268,16 @@ try:
 except ImportError:
     print('leo_pdf.py: can not import reportlab.lib styles info')
     stylesheet = None
-    raise
+    StyleSheet1 = ParagraphStyle = None
+    # raise
 if g.isPython3:
     import io
     StringIO = io.StringIO
 else:
+    # pylint: disable=no-member
     import StringIO
-import types
-
+    StringIO = StringIO.StringIO
+# import types
 #@-<< imports >>
 #@+others
 #@+node:ekr.20140920145803.17996: ** top-level functions
@@ -297,41 +297,31 @@ def init ():
 
 def getStyleSheet():
     """Returns a stylesheet object"""
+    if not StyleSheet1 or not ParagraphStyle:
+        return None
     stylesheet = StyleSheet1()
-
     stylesheet.add(ParagraphStyle(name='Normal',
                                   fontName='Times-Roman',
                                   fontSize=10,
                                   leading=12,
                                   spaceBefore=4,
-                                  spaceAfter=4)
-                   )
-
+                                  spaceAfter=4))
     stylesheet.add(ParagraphStyle(name='DocInfo',
                                   parent=stylesheet['Normal'],
                                   leading=12,
                                   spaceBefore=0,
-                                  spaceAfter=0)
-                   )
-
+                                  spaceAfter=0))
     stylesheet.add(ParagraphStyle(name='Comment',
-                                  fontName='Times-Italic')
-                   )
-
+                                  fontName='Times-Italic'))
     stylesheet.add(ParagraphStyle(name='Indent1',
                                   leftIndent=36,
-                                  firstLineIndent=0)
-                   )
-    
+                                  firstLineIndent=0))
     stylesheet.add(ParagraphStyle(name='BodyText',
                                   parent=stylesheet['Normal'],
-                                  spaceBefore=6)
-                   )
+                                  spaceBefore=6))
     stylesheet.add(ParagraphStyle(name='Italic',
                                   parent=stylesheet['BodyText'],
-                                  fontName = 'Times-Italic')
-                   )
-
+                                  fontName = 'Times-Italic'))
     stylesheet.add(ParagraphStyle(name='Heading1',
                                   parent=stylesheet['Normal'],
                                   fontName = 'Times-Bold',
@@ -340,7 +330,6 @@ def getStyleSheet():
                                   spaceBefore=10,
                                   spaceAfter=6),
                    alias='h1')
-
     stylesheet.add(ParagraphStyle(name='Heading2',
                                   parent=stylesheet['Normal'],
                                   fontName = 'Times-Bold',
@@ -349,7 +338,6 @@ def getStyleSheet():
                                   spaceBefore=10,
                                   spaceAfter=6),
                    alias='h2')
-    
     stylesheet.add(ParagraphStyle(name='Heading3',
                                   parent=stylesheet['Normal'],
                                   fontName = 'Times-BoldItalic',
@@ -358,7 +346,6 @@ def getStyleSheet():
                                   spaceBefore=10,
                                   spaceAfter=6),
                    alias='h3')
-
     stylesheet.add(ParagraphStyle(name='Heading4',
                                   parent=stylesheet['Normal'],
                                   fontName = 'Times-BoldItalic',
@@ -367,7 +354,6 @@ def getStyleSheet():
                                   spaceBefore=8,
                                   spaceAfter=4),
                    alias='h4')
-
     stylesheet.add(ParagraphStyle(name='Heading5',
                                   parent=stylesheet['Normal'],
                                   fontName = 'Times-BoldItalic',
@@ -376,7 +362,6 @@ def getStyleSheet():
                                   spaceBefore=8,
                                   spaceAfter=4),
                    alias='h5')
-
     stylesheet.add(ParagraphStyle(name='Heading6',
                                   parent=stylesheet['Normal'],
                                   fontName = 'Times-BoldItalic',
@@ -385,7 +370,6 @@ def getStyleSheet():
                                   spaceBefore=8,
                                   spaceAfter=4),
                    alias='h6')
-
     stylesheet.add(ParagraphStyle(name='Title',
                                   parent=stylesheet['Normal'],
                                   fontName = 'Times-Bold',
@@ -395,7 +379,6 @@ def getStyleSheet():
                                   alignment=TA_CENTER
                                   ),
                    alias='title')
-
     stylesheet.add(ParagraphStyle(name='Subtitle',
                                   parent=stylesheet['Normal'],
                                   fontName = 'Times-Bold',
@@ -405,7 +388,6 @@ def getStyleSheet():
                                   alignment=TA_CENTER
                                   ),
                    alias='subtitle')
-
     stylesheet.add(ParagraphStyle(name='TopicTitle',
                                   parent=stylesheet['Normal'],
                                   fontName = 'Times-Bold',
@@ -414,7 +396,6 @@ def getStyleSheet():
                                   spaceAfter=6,
                                   ),
                    alias='topic-title')
-
     for i in range(0, 15):
         indent = 18*i
         stylesheet.add(ParagraphStyle(name='TopicItem%s' % i,
@@ -426,7 +407,6 @@ def getStyleSheet():
                                   spaceAfter=0,
                                   ),
                    alias='topic-item-%s' % i)
-
     stylesheet.add(ParagraphStyle(name='UnorderedList',
                                   parent=stylesheet['Normal'],
                                   firstLineIndent=0,
@@ -435,7 +415,6 @@ def getStyleSheet():
                                   spaceBefore=0,
                                   bulletFontName='Symbol'),
                    alias='ul')
-
     stylesheet.add(ParagraphStyle(name='Definition',
                                   parent=stylesheet['Normal'],
                                   firstLineIndent=0,
@@ -445,11 +424,9 @@ def getStyleSheet():
                                   spaceBefore=2,
                                   bulletFontName='Times-BoldItalic'),
                    alias='dl')
-
     stylesheet.add(ParagraphStyle(name='OrderedList',
                                   parent=stylesheet['Definition']),
                    alias='ol')
-
     stylesheet.add(ParagraphStyle(name='Code',
                                   parent=stylesheet['Normal'],
                                   fontName='Courier',
@@ -458,44 +435,37 @@ def getStyleSheet():
                                   leading=8.8,
                                   leftIndent=36,
                                   firstLineIndent=0))
-
     stylesheet.add(ParagraphStyle(name='FunctionHeader',
                                   parent=stylesheet['Normal'],
                                   fontName='Courier-Bold',
                                   fontSize=8,
                                   leading=8.8))
-
     stylesheet.add(ParagraphStyle(name='DocString',
                                   parent=stylesheet['Normal'],
                                   fontName='Courier',
                                   fontSize=8,
                                   leftIndent=18,
                                   leading=8.8))
-
     stylesheet.add(ParagraphStyle(name='DocStringIndent',
                                   parent=stylesheet['Normal'],
                                   fontName='Courier',
                                   fontSize=8,
                                   leftIndent=36,
                                   leading=8.8))
-
     stylesheet.add(ParagraphStyle(name='URL',
                                   parent=stylesheet['Normal'],
                                   fontName='Courier',
                                   textColor=colors.navy,
                                   alignment=TA_CENTER),
                    alias='u')
- 
     stylesheet.add(ParagraphStyle(name='Centred',
                                   parent=stylesheet['Normal'],
                                   alignment=TA_CENTER
                                   ))
-
     stylesheet.add(ParagraphStyle(name='Caption',
                                   parent=stylesheet['Centred'],
                                   fontName='Times-Italic'
                                   ))
-    
     return stylesheet
 #@+node:ekr.20111106070228.12430: *3* get_language
 def get_language (doctree):
@@ -504,13 +474,13 @@ def get_language (doctree):
     class Reporter (object):
         def warning(self,s):
             g.es_print('Reporter.warning',s)
-    
+
     try:
         reporter = Reporter()
         language = docutils.languages.get_language(doctree.settings.language_code,reporter)
     except TypeError:
         language = docutils.languages.get_language(doctree.settings.language_code)
-        
+
     return language
 #@+node:ekr.20090704103932.5179: ** class Bunch (object)
 #@+at
@@ -525,7 +495,7 @@ def get_language (doctree):
 # 
 # You can read/write the named attributes you just created, add others, del some
 # of them, etc::
-#     
+# 
 #     if point.squared > threshold:
 #         point.isok = True
 #@@c
@@ -619,35 +589,31 @@ if docutils:
             if 0: # Not needed now that putParaFromIntermediateFile is in the visitor.
                 self.styleSheet = visitor.styleSheet
                 self.encode = visitor.encode
-                
             if reportlab:
-
-                out = StringIO.StringIO()
-            
-                doc = reportlab.platypus.SimpleDocTemplate(out,
+                # out = StringIO.StringIO()
+                out = StringIO()
+                reportlab.platypus.SimpleDocTemplate(out,
                     pagesize=reportlab.lib.pagesizes.A4)
-            
                 # The 'real' code is doc.build(story)
                 visitor.buildFromIntermediateFile(s,story,visitor)
-            
                 return out.getvalue()
-                
             else:
                 return ''
         #@+node:ekr.20090704103932.5185: *3* createPDF_usingPlatypus
         def createPDF_usingPlatypus (self,story):
-            
+
             if reportlab:
 
-                out = StringIO.StringIO()
-            
+                # out = StringIO.StringIO()
+                out = StringIO()
+
                 doc = reportlab.platypus.SimpleDocTemplate(out,
                     pagesize=reportlab.lib.pagesizes.A4)
-            
+
                 doc.build(story)
-            
+
                 return out.getvalue()
-                
+
             else:
                 return ''
         #@+node:ekr.20090704103932.5186: *3* lower
@@ -665,7 +631,7 @@ if docutils:
                 # We can modify the intermediate file by hand to test proposed code generation.
                 try:
                     filename = 'intermediateFile.txt'
-                    s = file(filename).read()
+                    s = open(filename).read()
                     # g.trace('creating .pdf file from %s...' % filename)
                     visitor = dummyPDFTranslator(self,self.document,s)
                 except IOError:
@@ -702,14 +668,13 @@ if docutils:
             self.writer = writer
             self.contents = contents
             self.story = []
-
             # Some of these may be needed, even though they are not referenced directly.
-            self.settings = settings = doctree.settings
-            ### self.styleSheet = stylesheet and stylesheet.getStyleSheet()
+            self.settings = doctree.settings
+            # self.styleSheet = stylesheet and stylesheet.getStyleSheet()
             self.styleSheet = getStyleSheet()
             docutils.nodes.NodeVisitor.__init__(self, doctree) # Init the base class.
             self.language = get_language(doctree)
-                ### docutils.languages.get_language(doctree.settings.language_code,self.reporter)
+                # docutils.languages.get_language(doctree.settings.language_code,self.reporter)
         #@+node:ekr.20090704103932.5190: *3* as_what
         def as_what(self):
 
@@ -719,11 +684,11 @@ if docutils:
 
             """Encode special characters in `text` & return."""
 
-            if type(text) is types.UnicodeType:
+            # if type(text) is types.UnicodeType:
+            if g.isUnicode(text):
                 # text = text.replace(g.u('\u2020'),g.u(' '))
                 # text = text.replace(g.u('\xa0'), g.u(' '))
                 text = text.encode('utf-8')
-
             return text
 
         #@+node:ekr.20090704103932.5192: *3* visit/depart_document
@@ -759,7 +724,7 @@ if docutils:
                 self.putParaFromIntermediateFile(para,style)
         #@+node:ekr.20090704103932.5194: *3* putParaFromIntermediateFile
         def putParaFromIntermediateFile (self,lines,style):
-            
+
             if not reportlab:
                 return
 
@@ -775,22 +740,22 @@ if docutils:
                     context = self.styleSheet))
         #@-others
 #@+node:ekr.20090704103932.5195: ** class PDFTranslator (docutils.nodes.NodeVisitor)
-if docutils:
+if docutils: # NOQA
+
     class PDFTranslator (docutils.nodes.NodeVisitor):
-        # pylint: disable=abstract-class-not-used
         #@+others
         #@+node:ekr.20090704103932.5196: *3* __init__ (PDFTranslator)
         def __init__(self, writer,doctree):
 
             self.writer = writer
-            self.settings = settings = doctree.settings
+            self.settings = doctree.settings
             # self.styleSheet = stylesheet and stylesheet.getStyleSheet()
             self.styleSheet = getStyleSheet()
             docutils.nodes.NodeVisitor.__init__(self, doctree) # Init the base class.
             self.language = get_language(doctree)
                 ### docutils.languages.get_language(doctree.settings.language_code,self.reporter)
             self.in_docinfo = False
-            self.head = [] # Set only by meta() method.  
+            self.head = [] # Set only by meta() method.
             self.body = [] # The body text being accumulated.
             self.foot = []
             self.sectionlevel = 0
@@ -920,27 +885,29 @@ if docutils:
         #@+node:ekr.20090704103932.5207: *5* visit_reference
         def visit_reference (self,node):
 
-            markup = [] ; caller = 'visit_reference'
-
-            if node.has_key('refuri'):
+            markup = []
+            caller = 'visit_reference'
+            if 'refuri' in node:
                 href = node ['refuri']
                 self.body.append(
                     self.starttag(node,'a',suffix='',href=href,caller=caller))
                 markup.append('</a>')
             else:
-                if node.has_key('id'):
+                # if node.has_key('id'):
+                if 'id' in node:
                     self.body.append(
                         self.starttag({},'setLink','',
                             destination=node['id'],caller=caller))
                     markup.append('</setLink>')
-                if node.has_key('refid'):
+                # if node.has_key('refid'):
+                if 'refid' in node:
                     href = node ['refid']
-                elif node.has_key('refname'):
+                # elif node.has_key('refname'):
+                elif 'refname' in node:
                     href = self.document.nameids [node ['refname']]
                 self.body.append(
                     self.starttag(node,'link','',destination=href,caller=caller))
                 markup.append('</link>')
-
             self.push(kind='a',markup=markup)
         #@+node:ekr.20090704103932.5208: *5* depart_reference
         def depart_reference(self, node):
@@ -953,14 +920,12 @@ if docutils:
         def visit_target (self,node):
 
             if not (
-                node.has_key('refuri') or
-                node.has_key('refid') or
-                node.has_key('refname')
+                'refuri' in node or 'refid' in node or 'refname' in node
             ):
                 href = ''
-                if node.has_key('id'):
+                if 'id' in node:
                     href = node ['id']
-                elif node.has_key('name'):
+                elif 'name' in node:
                     href = node ['name']
                 self.body.append("%s%s" % (
                     self.starttag(node,'setLink',suffix='',
@@ -1013,7 +978,7 @@ if docutils:
                 style = b.style
             except AttributeError:
                 style = 'Normal'
-                
+
             self.putTail(b.start,style)
         #@+node:ekr.20090704103932.5213: *3* Helpers
         #@+node:ekr.20090704103932.5214: *4*  starttag
@@ -1026,11 +991,11 @@ if docutils:
             for (name,value) in attributes.items():
                 atts [name.lower()] = value
             for att in ('class',): # append to node attribute
-                if node.has_key(att):
-                    if atts.has_key(att):
+                if att in node:
+                    if att in atts:
                         atts [att] = node [att] + ' ' + atts [att]
             for att in ('id',): # node attribute overrides
-                if node.has_key(att):
+                if att in node:
                     atts [att] = node [att]
 
             attlist = atts.items() ; attlist.sort()
@@ -1040,7 +1005,7 @@ if docutils:
                 # g.trace('attlist element:',repr(name),repr(value))
                 if value is None: # boolean attribute
                     parts.append(name.lower().strip())
-                elif isinstance(value,types.ListType):
+                elif g.isList(value):
                     values = [str(v) for v in value]
                     val = ' '.join(values).strip()
                     parts.append('%s="%s"' % (
@@ -1058,23 +1023,14 @@ if docutils:
             return self.story
         #@+node:ekr.20090704103932.5216: *4* createParagraph
         def createParagraph (self,text,style='Normal',bulletText=None):
-            
+
             if not reportlab:
                 return
-
-            if type(text) in (types.ListType,types.TupleType):
+            if isinstance(text, (list, tuple)):
                 text = ''.join(text)
-            
-            #### text = self.encode(text)
-            
-            # This escapes too much.
-            # text = self.escape(text)
-
             if not style.strip():
                 style = 'Normal'
-
             style = self.styleSheet.get(style)
-
             try:
                 s = reportlab.platypus.para.Paragraph (
                     text, ### self.encode(text),
@@ -1088,16 +1044,14 @@ if docutils:
                 g.es_print_exception(full=False)
                 g.es_exception(full=False)
                 print(repr(text))
-                
-                # self.dumpContext()
         #@+node:ekr.20090704103932.5217: *4* dumpContext
         def dumpContext (self):
-            
+
             if self.context:
 
                 print('-' * 40)
                 print('Dump of context...')
-            
+
                 i = 0
                 for bunch in self.context:
                     print('%2d %s' % (i,bunch))
@@ -1164,16 +1118,13 @@ if docutils:
             g.pr('\ndone', '-' * 25)
         #@+node:ekr.20090704103932.5220: *4* encode (PDFTranslator) (No longer used)
         def encode(self, text):
-
             """Encode special characters in `text` & return."""
-            if type(text) is types.UnicodeType:
-                ###text = text.replace(g.u('\u2020'),g.u(' '))
-                ###text = text.replace(g.u('\xa0'), g.u(' '))
+            if g.isUnicode(text):
                 text = text.encode('utf-8')
             return text
         #@+node:ekr.20111107181638.9742: *4* escape (PDFTranslator)
         def escape (self,s):
-            
+
             return s.replace('<','&lt').replace('>','&gt')
         #@+node:ekr.20090704103932.5221: *4* inContext
         def inContext (self,kind):
@@ -1208,7 +1159,7 @@ if docutils:
             bunch = Bunch(**keys)
             self.context.append(bunch)
             # g.trace(bunch)
-            
+
 
         def pop (self,kind):
 
@@ -1674,7 +1625,7 @@ if docutils:
         def depart_subtitle(self, node):
 
             b = self.pop('subtitle')
-            
+
             try:
                 style = b.style
             except AttributeError:
@@ -1741,7 +1692,7 @@ if docutils:
             raise docutils.nodes.SkipNode
         #@+node:ekr.20090704103932.5292: *5*  literal_blocks...
         def visit_literal_block(self, node):
-            
+
             if reportlab:
                 self.story.append(
                     reportlab.platypus.Preformatted(
@@ -1806,7 +1757,7 @@ if docutils:
         #@+node:ekr.20090704103932.5300: *4* visit_raw
         def visit_raw(self, node):
 
-            if node.has_key('format') and node['format'] == 'html':
+            if 'format' in node and node['format'] == 'html':
                 self.body.append(node.astext())
 
             raise docutils.nodes.SkipNode
@@ -1816,7 +1767,7 @@ if docutils:
         depart_substitution_definition = depart_comment
         visit_figure = visit_comment
         depart_figure = depart_comment
-    
+
         visit_sidebar = invisible_visit
         visit_warning = invisible_visit
         visit_tip = invisible_visit

@@ -32,10 +32,11 @@ import leo.core.leoGlobals as g
 
 try:
     # From win32 extensions: http://www.python.org/windows/win32/
-    import win32com.client 
+    import win32com.client
     client = win32com.client
 except ImportError:
-    client = g.cantImport('win32com.client')
+    g.cantImport('win32com.client')
+    client = None
 
 if g.isPython3:
     import configparser as ConfigParser
@@ -75,10 +76,9 @@ def getWordConnection():
         word.Visible = 1
         word.Documents.Add()
         return word
-    except Exception as err:
+    except Exception:
         g.warning("Failed to connect to Word")
         raise
-        # return None
 #@+node:EKR.20040517075715.17: ** doPara
 def doPara(word, text, style=None):
 
@@ -89,7 +89,7 @@ def doPara(word, text, style=None):
     if style:
         try:
             sel.Style = doc.Styles(style)
-        except:
+        except Exception:
             g.es("Unknown style: '%s'" % style)
     sel.TypeText(text)
     sel.TypeParagraph()
@@ -98,19 +98,18 @@ def writeNodeAndTree (c, word, header_style, level,
     maxlevel = 3,
     usesections = 1,
     sectionhead = "",
-    vnode = None):
-
+    vnode = None
+):
     """Write a node and its children to Word"""
-
     if vnode is None:
         vnode = c.currentVnode()
     #
     dict = c.scanAllDirectives(p=vnode)
     encoding = dict.get("encoding",None)
-    if encoding == None:
+    if encoding is None:
         # encoding = c.config.default_derived_file_encoding
         encoding = sys.getdefaultencoding()
-    # 
+    #
     s = vnode.b
     s = g.toEncodedString(s,encoding,reportErrors=True)
     doPara(word,s)
@@ -125,15 +124,15 @@ def writeNodeAndTree (c, word, header_style, level,
         h = g.toEncodedString(h,encoding,reportErrors=True)
         doPara(word,"%s %s" % (thishead,h),"%s %d" % (header_style,min(level,maxlevel)))
         writeNodeAndTree(c,word,header_style,level+1,maxlevel,usesections,thishead,child)
-#@+node:EKR.20040517075715.19: ** cmd_Export
-def cmd_Export(c):
-
-    """Export the current node to Word"""
-
+#@+node:EKR.20040517075715.19: ** word-export-export
+@g.command('word-export-export')
+def cmd_Export(event):
+    '''Export the current node to Word'''
+    c = event.get('c')
     try:
         word = getWordConnection()
         if word:
-            header_style = getConfiguration().get("Main", "Header_Style")
+            # header_style = getConfiguration().get("Main", "Header_Style")
             # Based on the rst plugin
             g.blue("Writing tree to Word")
             config = getConfiguration()
@@ -142,9 +141,9 @@ def cmd_Export(c):
                 1,
                 int(config.get("Main", "max_headings")),
                 config.get("Main", "use_section_numbers") == "Yes",
-                "")						 
+                "")
             g.es("Done!")
-    except Exception as err:
+    except Exception:
         g.error("Exception writing Word")
         g.es_exception()
 #@-others

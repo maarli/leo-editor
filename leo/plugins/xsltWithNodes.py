@@ -37,10 +37,11 @@ else:
 
 try:
     import Ft
-    from Ft.Xml import InputSource 
+    from Ft.Xml import InputSource
     from Ft.Xml.Xslt.Processor import Processor
 except ImportError:
-    Ft = g.cantImport("Ft",__name__)
+    g.cantImport("Ft",__name__)
+    Ft = None
 
 import weakref
 #@-<< imports >>
@@ -48,9 +49,10 @@ import weakref
 #@+node:mork.20041024091024: ** <<parser problems>>
 #@@killcolor
 
-#@+at 
-# 1. Having space before the start of the document caused it not to work.  I fixed this by striping the whitespace from the start
-# and end of the data at xslt time.
+#@+at
+# 1. Having space before the start of the document caused it not to work. I fixed
+#    this by striping the whitespace from the start and end of the data at xslt
+#    time.
 # 
 # 2. having a @ right before a tag causes it to not process.
 #     It appears to be safe to follow this pattern:
@@ -170,7 +172,7 @@ def processDocumentNode( c ):
         xIO = str( mdom2.toxml())
         xhead = str( xmlnode.headString )
         if xhead == "": xhead = "no headline"
-        xmlsource = InputSource.DefaultFactory.fromString( xIO, uri = xhead ) 
+        xmlsource = InputSource.DefaultFactory.fromString( xIO, uri = xhead )
         result = proc.run( xmlsource )
         nhline = "xsl:transform of " + str( xmlnode.headString )
         p2 = pos.insertAfter() # tnode )
@@ -191,7 +193,7 @@ def addXSLTNode (c):
     #<xsl:transform xmlns:xsl="http:///www.w3.org/1999/XSL/Transform" version="1.0">'''
 
     body = '''<?xml version="1.0"?>
-<xsl:transform xmlns:xsl="http:///www.w3.org/1999/XSL/Transform" version="1.0">    
+<xsl:transform xmlns:xsl="http:///www.w3.org/1999/XSL/Transform" version="1.0">
 </xsl:transform>'''
 
     p2 = pos.insertAfter() # tnode)
@@ -206,36 +208,25 @@ def addXSLTElement( c , element):
     ### w.event_generate( '<Key>' )
     ### w.update_idletasks()
 
-#@+node:mork.20041025113021: ** getString
+#@+node:mork.20041025113021: ** getString (xsltWithNodes.py)
 def getString (c):
-    '''This def turns a node into a string based off of Leo's file-nosent write logic'''
+    '''
+    This def turns a node into a string using Leo's file-nosent write logic.
+    '''
     at = c.atFileCommands
-    pos = c.p
-    cS = StringIO()
-
-    if not hasattr( at, 'new_df' ):
-    #if new_at_file: # 4.3 code base.
-        at.toStringFlag = True
-        # at.outputFile = cS 
-        at.writeOpenFile(pos,nosentinels=True,toString=True) #How the heck does this fill cS with data, if at.outputFile is never set?
-        # at.outputFile = None 
-        # at.toStringFlag = False 
-
-    else: # 4.2 code base
-        at.new_df.toStringFlag = True
-        at.new_df.outputFile = cS
-        at.new_df.writeOpenFile(pos,nosentinels=True,toString=True)
-        at.new_df.outputFile = None
-        at.new_df.toStringFlag = False
-
-    cS.seek(0)
-    return cleanString( cS.getvalue() )
+    # EKR: 2017/04/10: needs testing.
+    at.writeOpenFile(c.p, nosentinels=True, toString=True)
+    return cleanString(at.stringOutput)
 #@+node:mork.20041025120706: ** doMinidomTest
 def doMinidomTest( c ):
-    '''This def performs a simple test on a node.  Can the data be successfully parsed by minidom or not.  Results are output to the log'''
+    '''
+    This def performs a simple test on a node.
+    Can the data be successfully parsed by minidom or not?
+    Results are output to the log.
+    '''
     s = getString( c )
     try:
-        mdom = minidom.parseString( s )
+        minidom.parseString( s )
     except Exception as x:
         g.error("Minidom could not parse node because of:\n %s" % x)
         return
@@ -260,14 +251,17 @@ def jumpToStyleNode( c ):
 #@+node:mork.20041010125444.1: ** styleNodeSelected
 def styleNodeSelected( c ):
     '''Determines if a XSLT Style node has not been selected'''
-    if not stylenodes.has_key( c ):
-        g.es( "No Style Node selected" ) 
+    if c not in stylenodes:
+        g.es( "No Style Node selected" )
         return False
     return True
 
 
 #@+node:mork.20041010100633: ** addMenu
 def addMenu( tag, keywords ):
+
+    # pylint: disable=undefined-variable
+    # c *is* defined.
     c = keywords.get('c')
     if not c: return
 
@@ -340,7 +334,7 @@ import csv
 import weakref
 import Pmw
 
-class CSVVisualizer:
+class CSVVisualizer(object):
     arrays = []
     #@+others
     #@+node:ekr.20140906065955.18788: *5* init
@@ -359,7 +353,7 @@ class CSVVisualizer:
     def addData( self ):
 
         arr = self.arr
-        reader = self.readData() 
+        reader = self.readData()
         hc = False
         for n, d in enumerate( reader ):
             for n1, d2 in enumerate( d ):
@@ -380,8 +374,8 @@ class CSVVisualizer:
         cS.write( data )
         cS.seek( 0 )
         sniff = csv.Sniffer()
-        self.type = sniff.sniff( data ) 
-        reader = csv.reader( cS, self.type ) 
+        self.type = sniff.sniff( data )
+        reader = csv.reader( cS, self.type )
         return reader
 
     #@+node:ekr.20140906065955.18791: *5* writeData
@@ -394,7 +388,7 @@ class CSVVisualizer:
         for z in range( n2 ):
             ndata = []
             for z2 in range( n ):
-                ndata.append( self.arr.get( "%s,%s" % ( z, z2 ) ) )        
+                ndata.append( self.arr.get( "%s,%s" % ( z, z2 ) ) )
             data.append( ndata )
         cS = StringIO()
         csv_write = csv.writer( cS, self.type )
@@ -418,7 +412,7 @@ class CSVVisualizer:
         self.columns = self.columns + 1
         tab.configure( cols = self.columns )
         for z in range( self.rows ):
-            self.arr.set( '%s,%s' %( z , self.columns -1 ), "" ) 
+            self.arr.set( '%s,%s' %( z , self.columns -1 ), "" )
 
 
 
@@ -437,7 +431,7 @@ class CSVVisualizer:
         tab.configure( rows = self.rows )
         rc =  '%s,0' % (self.rows -1 )
         for z in range( self.columns ):
-            self.arr.set( '%s,%s' %( self.rows - 1, z ), "" ) 
+            self.arr.set( '%s,%s' %( self.rows - 1, z ), "" )
         tab.activate( rc )
         tab.focus_set()
 
@@ -521,7 +515,7 @@ class CSVVisualizer:
         tab.tag_configure( 'active', background = '#FFE7C6', foreground = 'blue' )
         tab.tag_configure( 'sel', background = '#FFE7C6', foreground = 'blue', bd =2 )
         tab.pack()
-        return tab 
+        return tab
 
     #@+node:ekr.20140906065955.18802: *5* createBBox
     def createBBox( parent, csvv, tab ):
@@ -533,14 +527,14 @@ class CSVVisualizer:
                     ( "Delete Column", lambda tab = tab: csvv.deleteColumn( tab ) ) )
         for z in bconfig:
             bbox.add( z[ 0 ], command = z[ 1 ], background = 'white', foreground = 'blue' )
-        bbox.pack()     
+        bbox.pack()
 
 
     #@+node:ekr.20140906065955.18803: *5* addMenu
     haveseen = weakref.WeakKeyDictionary()
     def addMenu( tag, keywords ):
         c = keywords.get('c') or keywords.get('new_c')
-        if haveseen.has_key( c ):
+        if c in haveseen:
             return
         haveseen[ c ] = None
         men = c.frame.menu
@@ -559,7 +553,7 @@ class CSVVisualizer:
 
         registerHandler( ('start2' , 'open2', "new") , addMenu )
         __version__ = ".125"
-        g.plugin_signon( __name__ )  
+        g.plugin_signon( __name__ )
 
     #@-others
 
@@ -583,7 +577,7 @@ class CSVVisualizer:
                 </xsl:for-each>
     <xsl:if test ='./v' >
         <xsl:apply-templates select = 'v'/>
-     </xsl:if> 
+     </xsl:if>
      </ul>
       </xsl:template>
 <xsl:template match ='leo_file'>
@@ -591,8 +585,8 @@ class CSVVisualizer:
         <style>
             ul{ position:relative;right=25;
                 border:thin ridge blue}
-            li{ position:relative;right=25} 
-            pre{ background:#FFE7C6 }       
+            li{ position:relative;right=25}
+            pre{ background:#FFE7C6 }
         </style>
         </head>
             <body>

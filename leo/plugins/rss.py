@@ -14,15 +14,15 @@ RSS feeds
 
 This plugin requires the python module 'feedparser' to be installed.
 
-This plugin operates on RSS feed definitions, which are defined as nodes 
-with headlines that start with `@feed`, and with bodies that contain a 
+This plugin operates on RSS feed definitions, which are defined as nodes
+with headlines that start with `@feed`, and with bodies that contain a
 valid `@url` directive.
 
 For example, the following is a valid feed definition::
-    
+
     @feed  Hack a Day
         @url http://feeds2.feedburner.com/hackaday/LgoM
-        
+
         Hack a Day's feed.  Awesome tech stuff.
 
 Each `@feed` node also stores a viewed history of previous stories, so that
@@ -43,32 +43,38 @@ This plugin is configured with the following @settings:
 @string rss-date-format
 -----------------------
 
-Format string to provide datetime.time.strftime, to format entry dates.  Defaults to '%Y-%m-%d %I:%M %p' if not provided.
+Format string to provide datetime.time.strftime, to format entry dates. Defaults
+to '%Y-%m-%d %I:%M %p' if not provided.
 
 @bool rss-sort-newest-first
 ---------------------------
 
-If True, newest entries are placed before older entries.  If False, older entries are placed before newer entries.
+If True, newest entries are placed before older entries. If False, older entries
+are placed before newer entries.
 
 @string rss-headline-format
 ---------------------------
 
-The format of an entry headline, specified with various tokens.  Defaults to '[<date>] <title>' if not provided.
+The format of an entry headline, specified with various tokens. Defaults to
+'[<date>] <title>' if not provided.
 
 Valid tokens are:
-    
+
 | <date> - the date, formatted according to `@string rss-date-format`
 | <title> - the entry title
 | <link> - the entry link (not recommended in headline)
 | <summary> - the entry summary (extremely not recommeded in headline)
 
-Anything that isn't a valid token is retained untouched, such as the square brackets in the default setting.
+Anything that isn't a valid token is retained untouched, such as the square
+brackets in the default setting.
 
 @data rss-body-format
 ---------------------
 
-The body of this node will provide the structure of the body of parsed entry nodes.  Empty lines should be denoted with '\\n' on a line by itself.  It defaults to the following, if not provided::
-    
+The body of this node will provide the structure of the body of parsed entry
+nodes. Empty lines should be denoted with '\\n' on a line by itself. It defaults
+to the following, if not provided::
+
     @url <link>
     \n
     <title>
@@ -76,15 +82,18 @@ The body of this node will provide the structure of the body of parsed entry nod
     \n
     <summary>
 
-Valid tokens are the same as for `@string rss-headline-format`.  Any instance of '\n' on a line by itself is replaced with an empty line.  All other strings that are not valid tokens are retained untouched, such as the `@url` directive in the default.
+Valid tokens are the same as for `@string rss-headline-format`. Any instance of
+'\n' on a line by itself is replaced with an empty line. All other strings that
+are not valid tokens are retained untouched, such as the `@url` directive in the
+default.
 
 
 Commands
 ========
 
-This plugin uses commands to operate on these `@feed` definitions.  The following 
+This plugin uses commands to operate on these `@feed` definitions. The following
 commands are available:
-    
+
 rss-parse-selected-feed
 -----------------------
 
@@ -94,9 +103,9 @@ children of the `@feed` node.  Can be SLOW for large feeds.
 rss-parse-all-feeds
 -------------------
 
-Parses all `@feed` nodes in the current outline, creating entries for
-each story as children of the appropriate `@feed` nodes.  Not recommended,
-as it can make Leo appear to be locked up while running.
+Parses all `@feed` nodes in the current outline, creating entries for each story
+as children of the appropriate `@feed` nodes. Not recommended, as it can make
+Leo appear to be locked up while running.
 
 rss-delete-selected-feed-stories
 --------------------------------
@@ -161,34 +170,31 @@ def init ():
     return ok
 #@+node:peckj.20131002201824.5543: ** onCreate
 def onCreate (tag, keys):
-    
+
     c = keys.get('c')
     if not c: return
-    
+
     theRSSController = RSSController(c)
     c.theRSSController = theRSSController
 #@+node:peckj.20131002201824.5544: ** class RSSController
-class RSSController:
-    
+class RSSController(object):
+
     #@+others
-    #@+node:peckj.20131002201824.5545: *3* __init__
-    def __init__ (self,c):
-        
+    #@+node:peckj.20131002201824.5545: *3* __init__ (RSSController, rss.py)
+    def __init__(self, c):
         self.c = c
         # Warning: hook handlers must use keywords.get('c'), NOT self.c.
-        
-        self._NO_TIME = (3000,0,0,0,0,0,0,0,0)
+        self._NO_TIME = (3000, 0, 0, 0, 0, 0, 0, 0, 0)
         self._NO_SUMMARY = 'NO SUMMARY'
         self._NO_NAME = 'NO TITLE'
         self._NO_LINK = 'NO LINK'
-        
         # register commands
-        c.k.registerCommand('rss-parse-selected-feed',shortcut=None,func=self.parse_selected_feed)
-        c.k.registerCommand('rss-parse-all-feeds',shortcut=None,func=self.parse_all_feeds)
-        c.k.registerCommand('rss-delete-selected-feed-stories',shortcut=None,func=self.delete_selected_feed_stories)
-        c.k.registerCommand('rss-delete-all-feed-stories',shortcut=None,func=self.delete_all_feed_stories)
-        c.k.registerCommand('rss-clear-selected-feed-history',shortcut=None,func=self.clear_selected_feed_history)
-        c.k.registerCommand('rss-clear-all-feed-histories',shortcut=None,func=self.clear_all_feed_histories)
+        c.k.registerCommand('rss-parse-selected-feed', self.parse_selected_feed)
+        c.k.registerCommand('rss-parse-all-feeds', self.parse_all_feeds)
+        c.k.registerCommand('rss-delete-selected-feed-stories', self.delete_selected_feed_stories)
+        c.k.registerCommand('rss-delete-all-feed-stories', self.delete_all_feed_stories)
+        c.k.registerCommand('rss-clear-selected-feed-history', self.clear_selected_feed_history)
+        c.k.registerCommand('rss-clear-all-feed-histories', self.clear_all_feed_histories)
     #@+node:peckj.20131003102740.5571: *3* feed related
     #@+node:peckj.20131002201824.5546: *4* get_all_feeds
     def get_all_feeds(self):
@@ -204,16 +210,17 @@ class RSSController:
         return pos.v.h.startswith('@feed') and g.getUrlFromNode(pos)
     #@+node:peckj.20131002201824.11901: *4* parse_feed
     def parse_feed(self, feed):
+
         c = self.c
-        
         g.es("Parsing feed: %s" % feed.h, color='blue')
         feedurl = g.getUrlFromNode(feed)
+        # pylint: disable=no-member
+        # feedparser.parse *does* exist.
         data = feedparser.parse(feedurl)
         # check for bad feed
         if data.bozo == 1:
             g.es("Error: bad feed data.", color='red')
             return
-        
         # grab config settings
         sort_newest_first = c.config.getBool('rss-sort-newest-first', default=True)
         body_format = c.config.getData('rss-body-format') or ['@url <link>','\\n','<title>','<date>','\\n','<summary>']
@@ -221,7 +228,6 @@ class RSSController:
         body_format = body_format.replace('\\n','')
         headline_format = c.config.getString('rss-headline-format') or '[<date>] <title>'
         date_format = c.config.getString('rss-date-format') or '%Y-%m-%d %I:%M %p'
-        
         # process entries
         # pylint: disable=unnecessary-lambda
         stories = sorted(data.entries, key=lambda entry: self.grab_date_parsed(entry))
@@ -234,18 +240,23 @@ class RSSController:
                 name = entry.get('title',default=self._NO_NAME)
                 link = entry.get('link',default=self._NO_LINK)
                 desc = entry.get('summary',default=self._NO_SUMMARY)
-                headline = headline_format.replace('<date>',date).replace('<title>',name).replace('<summary>',desc).replace('<link>',link)
-                body = body_format.replace('<date>',date).replace('<title>',name).replace('<summary>',desc).replace('<link>',link)
+                headline = (
+                    headline_format.replace('<date>',date).
+                    replace('<title>',name).
+                    replace('<summary>',desc).
+                    replace('<link>',link)
+                )
+                body = (
+                    body_format.replace('<date>',date).
+                    replace('<title>',name).
+                    replace('<summary>',desc).
+                    replace('<link>',link))
                 newp = pos.insertAsLastChild()
                 newp.h = headline
                 newp.b = body
                 self.add_entry_to_history(feed, entry)
-        
-        self.c.redraw_now()
-        
-            
-        
-            
+
+        self.c.redraw()
     #@+node:peckj.20131011131135.5848: *4* grab_date_parsed
     def grab_date_parsed(self, entry):
         published = None
@@ -272,7 +283,7 @@ class RSSController:
         s = entry.title + self.grab_date(entry) + entry.summary + entry.link
         return str(hash(s) & 0xffffffff)
 
-        
+
     #@+node:peckj.20131003095152.10663: *4* add_entry_to_history
     def add_entry_to_history(self, feed, entry):
         e_hash = self.hash_entry(entry)
@@ -323,7 +334,7 @@ class RSSController:
         pos = self.c.p
         if self.is_feed(pos):
             self.c.deletePositionsInList(pos.children())
-            self.c.redraw_now()
+            self.c.redraw()
         else:
             g.es('Not a valid @feed node.', color='red')
     #@+node:peckj.20131003090809.6563: *4* delete_all_feed_stories
@@ -332,7 +343,7 @@ class RSSController:
         '''
         for feed in self.get_all_feeds():
             self.c.deletePositionsInList(self.c.vnode2position(feed).children())
-        self.c.redraw_now()
+        self.c.redraw()
     #@+node:peckj.20131003101848.5579: *4* clear_selected_feed_history
     def clear_selected_feed_history(self,event=None):
         '''Clears the selected `@feed` node's viewed stories history.

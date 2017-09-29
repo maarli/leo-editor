@@ -65,13 +65,15 @@ else:
 import ftplib
 import os
 import sys
-import urllib
+# import urllib
 
+# pylint: disable=no-name-in-module,no-member
 if g.isPython3:
-    # pylint: disable=no-name-in-module
     import urllib.parse as urlparse
+    import urllib.request.urlopen as urlopen
 else:
-    import urlparse 
+    import urlparse
+    urlopen = urlparse.urlopen
 
 from formatter import AbstractFormatter, DumbWriter
 
@@ -98,7 +100,7 @@ def init ():
         g.plugin_signon(__name__)
     return ok
 #@+node:edream.110203113231.879: ** class FTPurl
-class FTPurl:
+class FTPurl(object):
     """An FTP wrapper class to store/retrieve files using an FTP URL.
 
     To create a connection, call the class with the constructor:
@@ -120,7 +122,7 @@ class FTPurl:
     #@+others
     #@+node:edream.110203113231.880: *3* __init__
     def __init__(self, ftpURL, mode=''):
-        
+
         parse = urlparse(ftpURL)
         if parse[0] != 'ftp':
             raise IOError("error reading %s: malformed ftp URL" % ftpURL)
@@ -135,7 +137,7 @@ class FTPurl:
             auth = parse[1][:authIndex]
             ftphost = parse[1][authIndex+1:]
         self.ftp = ftplib.FTP(ftphost)
-        if auth == None:
+        if auth is None:
             self.ftp.login()
         else:
             # the URL has username/password
@@ -172,7 +174,7 @@ class FTPurl:
                 s = file.getvalue()
                 file.close()
             return s
-        except:
+        except Exception:
             exception, msg, tb = sys.exc_info()
             raise IOError(msg)
 
@@ -206,7 +208,7 @@ class FTPurl:
             else: # mode='b': binary mode
                 self.ftp.storbinary('STOR %s' % self.path, file)
             file.close()
-        except:
+        except Exception:
             exception, msg, tb = sys.exc_info()
             raise IOError(msg)
     #@+node:edream.110203113231.886: *3* Utilities
@@ -221,19 +223,19 @@ class FTPurl:
         """Issue a LIST command passing the specified argument and return output as a string."""
         s = []
 
-        if path == None:
+        if path is None:
             path = self.dirname
         try:
             listcmd = 'LIST %s' % path
             self.ftp.retrlines(listcmd.rstrip(), s.append)
             return '\n'.join(s)
-        except:
+        except Exception:
             exception, msg, tb = sys.exc_info()
             raise IOError(msg)
     #@+node:edream.110203113231.890: *4* exists
     def exists(self, path=None):
         """Return 1 if the specified path exists. If path is omitted, the current file name is tried."""
-        if path == None:
+        if path is None:
             path = self.filename
 
         s = self.dir(path)
@@ -252,7 +254,7 @@ class FTPurl:
         """Close an existing FTPurl connection."""
         try:
             self.ftp.quit()
-        except:
+        except Exception:
             self.ftp.close()
         del self.ftp
         self.isConnectionOpen = 0
@@ -269,7 +271,8 @@ def enable_body(body):
             g.pr(insertOffTime,insertOnTime)
             body.configure(state="normal")
             body.configure(insertontime=insertOnTime,insertofftime=insertOffTime)
-        except: g.es_exception()
+        except Exception:
+            g.es_exception()
 
 def disable_body(body):
     global insertOnTime,insertOffTime
@@ -280,30 +283,31 @@ def disable_body(body):
             insertOffTime = body.cget("insertofftime")
             g.pr(insertOffTime,insertOnTime)
             body.configure(state="disabled")
-        except: g.es_exception()
+        except Exception:
+            g.es_exception()
 #@+node:edream.110203113231.894: ** insert_read_only_node (FTP version)
 # Sets p's body text from the file with the given name.
 # Returns True if the body text changed.
 def insert_read_only_node (c,p,name):
     if name=="":
-        name = g.app.gui.runOpenFileDialog(
+        name = g.app.gui.runOpenFileDialog(c,
             title="Open",
             filetypes=[("All files", "*")],
         )
         c.setHeadString(p,"@read-only %s" % name)
         c.redraw()
-    parse = urlparse.urlparse(name)
+    parse = urlparse(name)
     try:
         if parse[0] == 'ftp':
-            file = FTPurl(name)  # FTP URL
+            f = FTPurl(name)  # FTP URL
         elif parse[0] == 'http':
-            file = urllib.urlopen(name)  # HTTP URL
+            f = urlopen(name)  # HTTP URL
         else:
-            file = open(name,"r")  # local file
+            f = open(name,"r")  # local file
         g.es("..." + name)
-        new = file.read()
-        file.close()
-    except IOError as msg:
+        new = f.read()
+        f.close()
+    except IOError: # as msg:
         # g.es("error reading %s: %s" % (name, msg))
         # g.es("...not found: " + name)
         c.setBodyString(p,"") # Clear the body text.

@@ -1,16 +1,18 @@
 #@+leo-ver=5-thin
 #@+node:ajones.20070122160142: * @file textnode.py
 #@+<< docstring >>
-#@+node:ajones.20070122160142.1: ** << docstring >>
+#@+node:ajones.20070122160142.1: ** << docstring >> (textnode.py)
 ''' Supports @text nodes for reading and writing external files.
+
 This plugin has been superceded by @edit nodes.
 
-The @text node is for embedding text files in a leo node that won't be saved
-with the leo file, and won't contain any sentinel leo comments. Children of
-@text nodes are not saved with the derived file, though they will stay in the
-outline. When a outline is first loaded any @text nodes are filled with the
-contents of the text files on disk. To refresh the contents of an @text node,
-double click on the heading icon.
+The @text node is for embedding text files in a leo node that won't be
+saved with the leo file, and won't contain any sentinel leo comments.
+Children of @text nodes are not saved with the derived file, though they
+will stay in the outline. When a outline is first loaded any @text nodes
+are filled with the contents of the text files on disk. To refresh the
+contents of an @text node, execute the double-click-icon-box command on the
+node.
 
 '''
 #@-<< docstring >>
@@ -25,7 +27,7 @@ __version__ = "1.1"
     # Terry Brown: support for @path ancestors and uses universal newline mode for opening.
 
 #@+others
-#@+node:ajones.20070122160142.2: ** init
+#@+node:ajones.20070122160142.2: ** init (textnode.py)
 def init():
     '''Return True if the plugin has loaded successfully.'''
     g.registerHandler(('new','open2'), on_open)
@@ -39,7 +41,7 @@ def on_icondclick(tag, keywords):
     c = keywords['c']
     p = keywords['p']
     h = p.h
-    if g.match_word(h,0,"@text"): 
+    if g.match_word(h,0,"@text"):
         if p.b != "":
             result = g.app.gui.runAskYesNoDialog(c, "Query", "Read from file "+h[6:]+"?")
             if result == "no":

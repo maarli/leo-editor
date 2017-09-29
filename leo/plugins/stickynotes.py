@@ -73,10 +73,10 @@ try:
     encOK = True
 except ImportError:
     pass
-    
-    from leo.core.leoQt import Qt, QtCore, QtWidgets
 
-from leo.core.leoQt import isQt5, Qt, QtCore, QtWidgets
+from leo.core.leoQt import isQt5, Qt, QtWidgets
+
+# pylint: disable=no-name-in-module
 if isQt5:
     from PyQt5.QtCore import QTimer
     try:
@@ -85,7 +85,8 @@ if isQt5:
         QString = str
     from PyQt5.QtGui import QFont,QIcon,QTextCharFormat
     from PyQt5.QtWidgets import (
-        QAction,QInputDialog,QLineEdit,QMainWindow,QMdiArea,QPlainTextEdit,QTextEdit)
+        QAction,QInputDialog,QLineEdit,QMainWindow,QMdiArea,QTextEdit)
+            # QPlainTextEdit,
 else:
     from PyQt4.QtCore import QTimer
     try:
@@ -93,59 +94,223 @@ else:
     except ImportError:
         QString = str
     from PyQt4.QtGui import QAction,QFont,QIcon,QTextCharFormat,QTextEdit
-    from PyQt4.QtGui import QPlainTextEdit,QInputDialog,QMainWindow,QMdiArea,QLineEdit
+    from PyQt4.QtGui import QInputDialog,QMainWindow,QMdiArea,QLineEdit
+        # QPlainTextEdit,
 #@-<< imports >>
 #@+others
-#@+node:vivainio2.20091008140054.14555: ** styling
-stickynote_stylesheet = """
-/* The body pane */
-QPlainTextEdit {
-    background-color: #fdf5f5; /* A kind of pink. */
-    selection-color: white;
-    selection-background-color: lightgrey;
-    font-family: DejaVu Sans Mono;
-    /* font-family: Courier New; */
-    font-size: 12px;
-    font-weight: normal; /* normal,bold,100,..,900 */
-    font-style: normal; /* normal,italic,oblique */
-}
-"""
-
-def decorate_window(w):
-    w.setStyleSheet(stickynote_stylesheet)
-    w.setWindowIcon(QIcon(g.app.leoDir + "/Icons/leoapp32.png"))    
+#@+node:vivainio2.20091008140054.14555: ** decorate_window
+def decorate_window(c, w):
+    w.setStyleSheet(c.styleSheetManager.get_master_widget().styleSheet())
+    w.setWindowIcon(QIcon(g.app.leoDir + "/Icons/leoapp32.png"))
     w.resize(600, 300)
-
 #@+node:vivainio2.20091008133028.5824: ** init
 def init ():
     '''Return True if the plugin has loaded successfully.'''
-    ok = g.app.gui.guiName() == 'qt'  
+    ok = g.app.gui.guiName() == 'qt'
     if ok:
         g.plugin_signon(__name__)
-    g.app.stickynotes = {}    
+    g.app.stickynotes = {}
     return ok
+#@+node:ekr.20160403065412.1: ** commands
+#@+node:vivainio2.20091008133028.5825: *3* g.command('stickynote')
+@g.command('stickynote')
+def stickynote_f(event):
+    """ Launch editable 'sticky note' for c.p."""
+    c = event['c']
+    mknote(c, c.p)
+#@+node:ville.20110304230157.6526: *3* g.command('stickynote-new')
+@g.command('stickynote-new')
+def stickynote_new_f(event):
+    """Launch editable 'sticky note' for the node """
+    c = event['c']
+    p = find_or_create_stickynotes(c)
+    p2 = p.insertAsLastChild()
+    p2.h = time.asctime()
+    mknote(c, p2)
+    # Fix #249: Leo and Stickynote plugin do not request to save.
+    c.setChanged(True)
+    c.redraw(p2)
+#@+node:ville.20091023181249.5266: *3* g.command('stickynoter')
+@g.command('stickynoter')
+def stickynoter_f(event):
+    """
+    Launch editable 'sticky note' for the node.
+    The result is saved as rich text, that is, html...
+    """
+    c = event['c']
+    p = c.p
+    v = p.v
+
+    def focusin():
+        if v is c.p.v:
+            nf.setHtml(g.u(v.b))
+            nf.setWindowTitle(p.h)
+            nf.dirty = False
+
+    def focusout():
+        if nf.dirty:
+            v.b = g.u(nf.toHtml())
+            v.setDirty()
+            nf.dirty = False
+            p = c.p
+            if p.v is v:
+                c.selectPosition(c.p)
+            # Fix #249: Leo and Stickynote plugin do not request to save
+            c.setChanged(True)
+            c.redraw()
+
+    nf = SimpleRichText(focusin, focusout)  # not LessSimpleRichText
+    nf.dirty = False
+    decorate_window(c, nf)
+    nf.setWindowTitle(p.h)
+    nf.setHtml(p.b)
+    # Fix #249: Leo and Stickynote plugin do not request to save.
+    # Do this only on focusout:
+        # p.setDirty()
+        # c.setChanged(True)
+        # c.redraw()
+
+    def textchanged_cb():
+        nf.dirty = True
+
+    nf.textChanged.connect(textchanged_cb)
+    nf.show()
+    g.app.stickynotes[p.gnx] = nf
+#@+node:tbrown.20100120100336.7829: *3* g.command('stickynoteenc')
+if encOK:
+    @g.command('stickynoterekey')
+    def stickynoteenc_rk(event):
+        stickynoteenc_f(event, rekey=True)
+
+    @g.command('stickynoteenc')
+    def stickynoteenc_f(event, rekey=False):
+        """ Launch editable 'sticky note' for the encrypted node """
+        if not encOK:
+            g.es('no en/decryption - need python-crypto module')
+            return
+        if not __ENCKEY[0] or rekey:
+            sn_getenckey()
+        c = event['c']
+        p = c.p
+        v = p.v
+
+        def focusin():
+            if v is c.p.v:
+                decoded = sn_decode(v.b)
+                if decoded is None:
+                    return
+                if decoded != nf.toPlainText():
+                    # only when needed to avoid scroll jumping
+                    nf.setPlainText(decoded)
+                nf.setWindowTitle(p.h)
+                nf.dirty = False
+
+        def focusout():
+            if not nf.dirty:
+                return
+            enc = sn_encode(str(nf.toPlainText()))
+            if v.b != enc:
+                v.b = enc
+                v.setDirty()
+                # Fix #249: Leo and Stickynote plugin do not request to save
+                c.setChanged(True)
+            nf.dirty = False
+            p = c.p
+            if p.v is v:
+                c.selectPosition(c.p)
+            c.redraw()
+
+        if rekey:
+            unsecret = sn_decode(v.b)
+            if unsecret is None:
+                return
+            sn_getenckey()
+            secret = sn_encode(unsecret)
+            v.b = secret
+
+        ### c = event['c']
+        ### p = c.p
+        decoded = sn_decode(v.b)
+        if decoded is None:
+            return
+        nf = mknote(c,p, focusin=focusin, focusout=focusout)
+        nf.setPlainText(decoded)
+        if rekey:
+            g.es("Key updated, data decoded with new key shown in window")
+#@+node:tbrown.20100120100336.7830: *3* g.command('stickynoteenckey')
+if encOK:
+    def sn_decode(s):
+        try:
+            return AES.new(__ENCKEY[0]).decrypt(base64.b64decode(s)).decode('utf-8').strip()
+        except UnicodeDecodeError:
+            g.es("Decode failed")
+            __ENCKEY[0] = None
+            return None
+
+    def sn_encode(s):
+        pad = ' '*(16-len(s)%16)
+        txt = base64.b64encode(AES.new(__ENCKEY[0]).encrypt((s+pad).encode('utf-8')))
+        if g.isPython3:
+            txt = str(txt, 'utf-8')
+        wrapped = textwrap.wrap(txt, break_long_words=True)
+        return '\n'.join(wrapped)
+
+    @g.command('stickynoteenckey')
+    def sn_getenckey(dummy=None):
+        txt,ok = QInputDialog.getText(None,
+            'Enter key',
+            'Enter key.\nData lost if key is lost.\nSee docs. for key upgrade notes.',
+        )
+        if not ok:
+            return
+
+        if str(txt).startswith('v0:'):
+            txt = QString(txt[3:])
+        else:
+            txt = g.toUnicode(txt)
+
+        # arbitrary kludge to convert string to 256 bits - don't change
+        sha = SHA.new()
+        md5 = MD5.new()
+        sha.update(txt.encode('utf-8'))
+        md5.update(txt.encode('utf-8'))
+        __ENCKEY[0] = sha.digest()[:16] + md5.digest()[:16]
+        if len(__ENCKEY[0]) != 32:
+            raise Exception("sn_getenckey failed to build key")
 #@+node:tbrown.20141214173054.3: ** class TextEditSearch
 class TextEditSearch(QtWidgets.QWidget):
     """A QTextEdit with a search box
-    
+
     Used to make decoded encoded body text searchable, so when you've decoded
     your password list you dont't have to scan through five pages of text to
     find the one you need.
     """
 
+    @staticmethod
+    def _call_old_first(oldfunc, newfunc):
+        """Focus in/out methods need to call base class method"""
+        def f(event, oldfunc=oldfunc, newfunc=newfunc):
+            oldfunc(event)
+            newfunc()
+        return f
+
     def __init__(self, *args, **kwargs):
         QtWidgets.QWidget.__init__(self, *args, **kwargs)
         self.textedit = QtWidgets.QTextEdit(*args, **kwargs)
         # need to call focusin/out set on parent by FocusingPlaintextEdit / mknote
-        self.textedit.focusInEvent = lambda event, owner=self: owner.focusin()
-        self.textedit.focusOutEvent = lambda event, owner=self: owner.focusout()
+        self.textedit.focusInEvent = self._call_old_first(
+            self.textedit.focusInEvent, self.focusin)
+        self.textedit.focusOutEvent = self._call_old_first(
+            self.textedit.focusOutEvent, self.focusout)
         self.searchbox = QtWidgets.QLineEdit()
-        self.searchbox.focusInEvent = lambda event, owner=self: owner.focusin()
-        self.searchbox.focusOutEvent = lambda event, owner=self: owner.focusout()
+        self.searchbox.focusInEvent = self._call_old_first(
+            self.searchbox.focusInEvent, self.focusin)
+        self.searchbox.focusOutEvent = self._call_old_first(
+            self.searchbox.focusOutEvent, self.focusout)
 
         # invoke find when return pressed
         self.searchbox.returnPressed.connect(self.search)
-        
+
         layout = QtWidgets.QVBoxLayout()
         self.setLayout(layout)
         layout.setSpacing(0)
@@ -173,15 +338,15 @@ class TextEditSearch(QtWidgets.QWidget):
 class FocusingPlaintextEdit(TextEditSearch):
 
     def __init__(self, focusin, focusout, closed = None, parent = None):
-        TextEditSearch.__init__(self, parent)        
         self.focusin = focusin
         self.focusout = focusout
         self.closed = closed
+        TextEditSearch.__init__(self, parent)
 
     def focusOutEvent (self, event):
         self.focusout()
 
-    def focusInEvent (self, event):        
+    def focusInEvent (self, event):
         self.focusin()
 
     def closeEvent(self, event):
@@ -191,8 +356,11 @@ class FocusingPlaintextEdit(TextEditSearch):
         self.focusout()
 #@+node:ville.20091023181249.5264: ** class SimpleRichText
 class SimpleRichText(QTextEdit):
+
+    # pylint: disable=method-hidden
+
     def __init__(self, focusin, focusout):
-        QTextEdit.__init__(self)        
+        QTextEdit.__init__(self)
         self.focusin = focusin
         self.focusout = focusout
         self.createActions()
@@ -202,12 +370,12 @@ class SimpleRichText(QTextEdit):
     def focusOutEvent ( self, event ):
         self.focusout()
 
-    def focusInEvent ( self, event ):        
+    def focusInEvent ( self, event ):
         self.focusin()
 
 
     def closeEvent(self, event):
-        event.accept()        
+        event.accept()
 
     def createActions(self):
         self.boldAct = QAction(self.tr("&Bold"), self)
@@ -262,183 +430,14 @@ class SimpleRichText(QTextEdit):
 
 
 
-#@+node:vivainio2.20091008133028.5825: ** g.command('stickynote')
-@g.command('stickynote')
-def stickynote_f(event):
-    """ Launch editable 'sticky note' for the node """
-
-    c = event['c']
-    p = c.p
-    nf = mknote(c,p)
-#@+node:ville.20110304230157.6526: ** g.command('stickynote-new')
-@g.command('stickynote-new')
-def stickynote_new_f(event):
-    """ Launch editable 'sticky note' for the node """
-
-    c = event['c']
-    p,wb = find_or_create_stickynotes()
-    
-    n = p.insertAsLastChild()
-    c.redraw(n)
-    n.h = time.asctime()
-    
-    nf = mknote(wb,n)
-#@+node:ville.20110304230157.6527: ** get_workbook
-def get_workbook():
-    for co in g.app.commanders():
-        if co.mFileName.endswith('workbook.leo'):
-            return co
-
-def find_or_create_stickynotes():
-    wb = get_workbook()
-    assert wb,'no wb'
-    pl = wb.find_h('stickynotes')
-    if not pl:
-        p = wb.rootPosition().insertAfter()
-        wb.redraw(p)
-        p.h = "stickynotes"
-    else:
-        p = pl[0]
-        
-    return p, wb
-                  
-# print(get_workbook())       
-#@+node:ville.20091023181249.5266: ** g.command('stickynoter')
-@g.command('stickynoter')
-def stickynoter_f(event):
-    """ Launch editable 'sticky note' for the node """
-
-    c= event['c']
-    p = c.p
-    v = p.v
-
-    def focusin():
-        # print("focus in")
-        if v is c.p.v:
-            nf.setHtml(g.u(v.b))
-            nf.setWindowTitle(p.h)
-            nf.dirty = False
-
-    def focusout():
-        # print("focus out")
-        if not nf.dirty:
-            return
-        v.b = g.u(nf.toHtml())
-        v.setDirty()
-        nf.dirty = False
-        p = c.p
-        if p.v is v:
-            c.selectPosition(c.p)
-
-    nf = SimpleRichText(focusin, focusout)  # not LessSimpleRichText
-    nf.dirty = False
-    decorate_window(nf)
-    nf.setWindowTitle(p.h)
-    nf.setHtml(p.b)
-    p.setDirty()
-
-    def textchanged_cb():
-        nf.dirty = True
-
-    nf.textChanged.connect(textchanged_cb)
-    ### nf.connect(nf,SIGNAL("textChanged()"),textchanged_cb)
-    nf.show()
-    g.app.stickynotes[p.gnx] = nf
-#@+node:tbrown.20100120100336.7829: ** g.command('stickynoteenc')
-if encOK:    
-    @g.command('stickynoterekey')
-    def stickynoteenc_rk(event):
-        stickynoteenc_f(event, rekey=True)
-
-    @g.command('stickynoteenc')
-    def stickynoteenc_f(event, rekey=False):
-        """ Launch editable 'sticky note' for the encrypted node """
-
-        if not encOK:
-            g.es('no en/decryption - need python-crypto module')
-            return
-
-        if not __ENCKEY[0] or rekey:
-            sn_getenckey()
-
-        c= event['c']
-        p = c.p
-        v = p.v
-        def focusin():
-            #print "focus in"
-            if v is c.p.v:
-                if sn_decode(v.b) != nf.toPlainText():
-                    # only when needed to avoid scroll jumping
-                    nf.setPlainText(sn_decode(v.b))
-                nf.setWindowTitle(p.h)
-                nf.dirty = False
-
-        def focusout():
-            #print "focus out"
-            if not nf.dirty:
-                return
-            v.b = sn_encode(str(nf.toPlainText()))
-            v.setDirty()
-            nf.dirty = False
-            p = c.p
-            if p.v is v:
-                c.selectPosition(c.p)
-
-        if rekey:
-            unsecret = sn_decode(v.b)
-            sn_getenckey()
-            secret = sn_encode(unsecret)
-            v.b = secret
-            
-        c = event['c']
-        p = c.p
-        nf = mknote(c,p)
-        nf.focusout = focusout
-        nf.focusin = focusin
-        
-        nf.setPlainText(sn_decode(v.b))
-        
-        if rekey:
-            g.es("Key updated, data decoded with new key shown in window")
-#@+node:tbrown.20100120100336.7830: ** sn_de/encode
-if encOK:
-    def sn_decode(s):
-        return AES.new(__ENCKEY[0]).decrypt(base64.b64decode(s)).strip()
-
-    def sn_encode(s):
-        pad = ' '*(16-len(s)%16)
-        return '\n'.join(textwrap.wrap(
-            base64.b64encode(AES.new(__ENCKEY[0]).encrypt(s+pad)),
-            break_long_words = True
-        ))
-
-    @g.command('stickynoteenckey')
-    def sn_getenckey(dummy=None):
-        txt,ok = QInputDialog.getText(None, 'Enter key', 'Enter key.\nData lost if key is lost.\nSee docs. for key upgrade notes.')
-        if not ok:
-            return
-        
-        if str(txt).startswith('v0:'):
-            txt = QString(txt[3:])
-        else:
-            txt = unicode(txt)
-
-        # arbitrary kludge to convert string to 256 bits - don't change
-        sha = SHA.new()
-        md5 = MD5.new()
-        sha.update(txt)
-        md5.update(txt)
-        __ENCKEY[0] = sha.digest()[:16] + md5.digest()[:16]
-        if len(__ENCKEY[0]) != 32:
-            raise Exception("sn_getenckey failed to build key")
-#@+node:ville.20100707205336.5610: ** create_subnode
+#@+node:ekr.20160403065519.1: ** Utils
+#@+node:ville.20100707205336.5610: *3* create_subnode
 def create_subnode(c, heading):
-    """  Find node with heading, then add new node as child under this heading 
+    """  Find node with heading, then add new node as child under this heading
 
     Returns new position.
-
-
     """
+
     h = c.find_h(heading)
     if not h:
         p = c.rootPosition()
@@ -450,49 +449,73 @@ def create_subnode(c, heading):
 
     chi = p.insertAsLastChild()
     return chi.copy()
-#@+node:ville.20100703194946.5587: ** mknote
-def mknote(c,p, parent=None):
+#@+node:ekr.20160403065539.1: *3* find_or_create_stickynotes
+def find_or_create_stickynotes(c):
+
+    # Huh? This makes no sense, and can cause a crash.
+        # wb = get_workbook()
+        # assert wb,'no wb'
+    aList = c.find_h('stickynotes')
+    if aList:
+        p = aList[0]
+    else:
+        p = c.rootPosition().insertAfter()
+        c.redraw(p)
+        p.h = "stickynotes"
+    # return p, wb
+    return p
+#@+node:ville.20110304230157.6527: *3* get_workbook (no longer used)
+def get_workbook():
+    for co in g.app.commanders():
+        if co.mFileName.endswith('workbook.leo'):
+            return co
+#@+node:ville.20100703194946.5587: *3* mknote
+def mknote(c,p, parent=None, focusin=None, focusout=None):
     """ Launch editable 'sticky note' for the node """
-
+    # pylint: disable=function-redefined
+    # focusin and focusout are redefined elsewhere.
     v = p.v
-    def focusin():
-        #print "focus in"
-        if v is c.p.v:
-            if v.b.encode('utf-8') != nf.toPlainText():
-                # only when needed to avoid scroll jumping
-                nf.setPlainText(g.u(v.b))
-            nf.setWindowTitle(v.h)
-            nf.dirty = False
-            
 
-    def focusout():
-        #print "focus out"
-        if not nf.dirty:
-            return
-        v.b = g.u(nf.toPlainText())
-        v.setDirty()
-        nf.dirty = False
-        p = c.p
-        if p.v is v:
-            c.selectPosition(c.p)
+    if focusin is None:
+        def focusin():
+            if v is c.p.v:
+                if v.b.encode('utf-8') != nf.toPlainText():
+                    # only when needed to avoid scroll jumping
+                    nf.setPlainText(g.u(v.b))
+                nf.setWindowTitle(v.h)
+                nf.dirty = False
+
+    if focusout is None:
+        def focusout():
+            if nf.dirty:
+                if v.b.encode('utf-8') != nf.toPlainText():
+                    v.b = g.u(nf.toPlainText())
+                    v.setDirty()
+                    # Fix #249: Leo and Stickynote plugin do not request to save
+                    c.setChanged(True)
+                nf.dirty = False
+                p = c.p
+                if p.v is v:
+                    c.selectPosition(c.p)
+                c.redraw()
 
     def closeevent():
         pass
-        # print "closeevent"
 
     nf = FocusingPlaintextEdit(focusin, focusout, closeevent, parent = parent)
-    nf.setWindowIcon(QIcon(g.app.leoDir + "/Icons/leoapp32.png"))
+    decorate_window(c, nf)
     nf.dirty = False
     nf.resize(600, 300)
     nf.setWindowTitle(p.h)
     nf.setPlainText(p.b)
-    p.setDirty()
+    # Fix #249: Leo and Stickynote plugin do not request to save
+    # Don't set the node dirty unless it has been changed.
+    # p.setDirty()
 
     def textchanged_cb():
         nf.dirty = True
 
     nf.textChanged.connect(textchanged_cb)
-    ### nf.connect(nf,SIGNAL("textChanged()"),textchanged_cb)
     nf.show()
     g.app.stickynotes[p.gnx] = nf
     return nf
@@ -502,7 +525,7 @@ def tabula_show(c):
     try:
         t = c.tabula
     except AttributeError:
-        t = c.tabula = Tabula(c) 
+        t = c.tabula = Tabula(c)
     t.show()
     return t
 
@@ -519,12 +542,10 @@ def tabula_f(event):
 #@+node:ville.20100704010850.5588: *3* @g.command('tabula-show')
 @g.command('tabula-show')
 def tabula_show_f(event):
+    '''Show the`Tabula` sticky note dock window, without adding the current node.'''
     c= event['c']
 
     tabula_show(c)
-
-
-
 #@+node:ville.20100704125228.5592: *3* @g.command('tabula-marked')
 @g.command('tabula-marked')
 def tabula_marked_f(event):
@@ -556,21 +577,18 @@ class Tabula(QMainWindow):
     def __init__(self, c):
 
         QMainWindow.__init__(self)
-
         mdi = self.mdi = QMdiArea(self)
         self.setCentralWidget(mdi)
         self.create_actions()
         self.menuBar().setVisible(False)
-
         self.notes = {}
         self.c = c
 
         def delayed_load():
             self.load_states()
+
         QTimer.singleShot(0, delayed_load)
-
         self.setWindowTitle("Tabula " + os.path.basename(self.c.mFileName))
-
         g.registerHandler("end1",self.on_quit)
     #@+node:ekr.20101114061906.5443: *4* add_note
     def add_note(self, p):
@@ -584,7 +602,10 @@ class Tabula(QMainWindow):
         sw = self.mdi.addSubWindow(n)
         # pylint: disable=maybe-no-member
         # Qt.WA_DeleteOnClose does exist.
-        sw.setAttribute(Qt.WA_DeleteOnClose, False)
+        try:
+            sw.setAttribute(Qt.WA_DeleteOnClose, False)
+        except AttributeError:
+            pass
         self.notes[gnx] = n
         n.show()
         return n
@@ -629,10 +650,10 @@ class Tabula(QMainWindow):
             self.add_note(n)
 
         def do_edit_h():
-            p, w = self.get_current_pos()        
+            p, w = self.get_current_pos()
 
             new, r = QInputDialog.getText(None, "Edit headline", "", QLineEdit.Normal, p.h)
-            if not r: 
+            if not r:
                 return
             new = g.u(new)
             p.h = new
@@ -669,7 +690,7 @@ class Tabula(QMainWindow):
 
         for gnx, geom in stored.items():
             try:
-                po = ncache[gnx]
+                ncache[gnx]
             except KeyError:
                 g.trace("lost note", gnx)
                 continue
