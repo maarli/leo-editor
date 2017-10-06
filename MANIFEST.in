@@ -1,1 +1,3 @@
-recursive-include leo *.*
+# recursive-include leo *.*     # not needed when using `graft`
+graft leo
+global-exclude *.py[cod] __pycache__ *.so
