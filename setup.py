@@ -1,5 +1,5 @@
 #@+leo-ver=5-thin
-#@+node:maphew.20141126130213.2: * @file ../../setup.py
+#@+node:maphew.20141126130213.2: * @file setup.py
 from setuptools import setup, find_packages # Always prefer setuptools over distutils
 from codecs import open # To use a consistent encoding
 import leo.core.leoVersion
@@ -45,9 +45,13 @@ setup(
     platforms = ['Linux','Windows','MacOS'],
     download_url = 'http://sourceforge.net/projects/leo/files/Leo/',
     classifiers = classifiers,
-    packages = find_packages()
+    packages = find_packages(),
     #packages = ['', 'core'], 
     #package_dir = {'': 'leo'},
+    entry_points = {
+       'console_scripts': ['leoc = leo.core.runLeo:run'],
+        # 'gui_scripts' : ['leow = leo.core.runLeo.run']
+       }
 )
 
 #@@language python
